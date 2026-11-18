@@ -187,7 +187,18 @@ def _row(sess: Session, res: dict, k_max: int) -> dict:
         "n_components": res.get("n_components", 0),
         "snet_exact_agree": res.get("snet_exact_agree", ""),
         "snet_ritz_max_relerr": res.get("snet_ritz_max_relerr", ""),
+        "snet_ritz_scaled_err": _scaled_err(res, k_max),
     }
+
+
+def _scaled_err(res: dict, k_max: int):
+    """max_i |ritz_i - exact_i| / exact_{k_max+1}: error relative to the spectrum's scale
+    (plain relative error explodes on the near-zero within-cluster eigenvalues)."""
+    if "exact_eigenvalues" not in res:
+        return ""
+    r, e = np.asarray(res["eigenvalues"]), np.asarray(res["exact_eigenvalues"])
+    m = min(len(r), len(e), k_max + 1)
+    return float(np.max(np.abs(r[:m] - e[:m])) / max(abs(e[m - 1]), 1e-12)) if m else ""
 
 
 def _save(cfg: Cfg, rec: str, res: dict, z: np.ndarray) -> None:

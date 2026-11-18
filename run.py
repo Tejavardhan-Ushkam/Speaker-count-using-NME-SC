@@ -69,10 +69,17 @@ def main(argv: list[str] | None = None) -> int:
         prepare(load_config(args.config, overrides=args.overrides), force=args.force, only=args.only)
         rc = 0
     elif args.cmd == "train-affnet":
-        from speakercount.affinity.train import train
         from speakercount.config import load_config
 
-        train(load_config(args.config, overrides=args.overrides))
+        cfg = load_config(args.config, overrides=args.overrides)
+        if cfg.affnet.arch == "siamese":
+            from speakercount.affinity.siamese import train_siamese
+
+            train_siamese(cfg)
+        else:
+            from speakercount.affinity.train import train
+
+            train(cfg)
         rc = 0
     elif args.cmd in ("cluster", "evaluate"):
         from speakercount.config import load_config

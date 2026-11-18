@@ -54,8 +54,17 @@ class EcapaEmbedder:
             self._model.eval()
         return self._model
 
-    @torch.inference_mode()
     def encode(self, wav: np.ndarray, starts: np.ndarray, window_sec: float) -> np.ndarray:
+        try:
+            return self._encode(wav, starts, window_sec)
+        except torch.cuda.OutOfMemoryError:  # shared GPU full: reload ECAPA on CPU and redo
+            torch.cuda.empty_cache()
+            print("[ecapa] GPU out of memory: embedding moved to CPU")
+            self.device, self._model = "cpu", None
+            return self._encode(wav, starts, window_sec)
+
+    @torch.inference_mode()
+    def _encode(self, wav: np.ndarray, starts: np.ndarray, window_sec: float) -> np.ndarray:
         sr = self.cfg.sample_rate
         n_samp = int(round(window_sec * sr))
         if len(starts) == 0:

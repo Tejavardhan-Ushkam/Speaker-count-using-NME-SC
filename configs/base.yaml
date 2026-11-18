@@ -41,7 +41,6 @@ embedding:
 labels:
   clean_main_share: 0.90    # one speaker covers >= 90 % of the window
   clean_other_share: 0.10   # every other speaker covers <= 10 %
-  mode: clean               # clean | most_overlap (old-project labels, ablation)
 
 affinity:
   source: ecapa             # ecapa | affnet | siamese
@@ -111,6 +110,7 @@ method:
   tag: ""
 
 affnet:
+  arch: affnet              # affnet | siamese (ablation: old Siamese with flaws 1-2 fixed)
   train_configs: []
   val_configs: []
   in_dim: 192
@@ -131,6 +131,7 @@ affnet:
   logit_b_init: -5.0
   chunk_min: 256
   chunk_max: 1024
+  label_mode: clean         # clean (ambiguous masked out) | most_overlap (old-project labels, ablation)
   speaker_dropout: 0.5
   emb_noise: 0.01
   segment_dropout: 0.1
@@ -148,3 +149,4 @@ affnet:
   out_dir: checkpoints/affnet
   device: cuda
   num_workers: 0
+  val_eig_solver: dense      # validation-time NME-SC (same p*/K as sparse, verified on AMI test; faster on GPU)

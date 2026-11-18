@@ -105,10 +105,13 @@ def write_report(cfg: Cfg) -> Path:
         if "snet_exact_agree" in df and df.snet_exact_agree.notna().any() and cfg.clustering.backend == "spectralnet":
             agree = pd.to_numeric(df.snet_exact_agree, errors="coerce")
             rel = pd.to_numeric(df.get("snet_ritz_max_relerr"), errors="coerce")
+            sc = pd.to_numeric(df.get("snet_ritz_scaled_err"), errors="coerce")
             rate = agree.mean()
             L += ["## SpectralNet v2 self-check", "",
                   f"K^ agreement with exact eigh: **{rate:.3f}** ({int(agree.sum())}/{agree.notna().sum()}); "
-                  f"Ritz-value max rel. error: median {rel.median():.2e}, max {rel.max():.2e}."
+                  f"Ritz-value max rel. error (first k_max+1, excluding λ1): median {rel.median():.2e}, max {rel.max():.2e} "
+                  f"(dominated by near-zero within-cluster eigenvalues); max |Δλ| / λ_(k_max+1): median {sc.median():.3f}, "
+                  f"max {sc.max():.3f}."
                   + ("  **WARNING: agreement < 90 %**" if rate < 0.9 else ""), ""]
 
     # comparison against baselines

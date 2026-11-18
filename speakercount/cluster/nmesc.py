@@ -91,8 +91,17 @@ def _eigs_sparse(w: sp.csr_matrix, kind: str, k: int):
     return small, big
 
 
+def _gpu_or_cpu(fn, w: torch.Tensor):
+    """Run fn(w) on w's device; if the GPU is out of memory (shared card), redo it on CPU."""
+    try:
+        return fn(w)
+    except torch.OutOfMemoryError:
+        torch.cuda.empty_cache()
+        return fn(w.cpu())
+
+
 def _eigs_dense(w: torch.Tensor, kind: str, k: int):
-    ev = torch.linalg.eigvalsh(laplacian(w, kind))
+    ev = _gpu_or_cpu(lambda m: torch.linalg.eigvalsh(laplacian(m, kind)), w)
     ev = ev.double().cpu().numpy()
     return ev[:k], float(ev[-1])
 
@@ -165,6 +174,5 @@ def eigengap_stats(eigs: np.ndarray, gap_cap: int):
 
 def exact_backend(w: torch.Tensor, c):
     """Dense eigh at p*: eigenvalues, eigenvectors, K."""
-    lap = laplacian(w, c.laplacian)
-    vals, vecs = torch.linalg.eigh(lap)
+    vals, vecs = _gpu_or_cpu(lambda m: torch.linalg.eigh(laplacian(m, c.laplacian)), w)
     return vals.double().cpu().numpy(), vecs
