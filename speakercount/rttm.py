@@ -72,6 +72,31 @@ def list_recordings(cfg: Cfg) -> list[str]:
     return recs
 
 
+def is_available(cfg: Cfg) -> bool:
+    """True if this split's RTTMs (and split list, if any) exist."""
+    rttm_dir = resolve_path(cfg.dataset.rttm_dir)
+    if not rttm_dir.is_dir() or not any(rttm_dir.glob("*.rttm")):
+        return False
+    if cfg.dataset.recordings_file and not resolve_path(cfg.dataset.recordings_file).exists():
+        return False
+    return True
+
+
+def available_configs(paths: list[str], what: str) -> list[str]:
+    """Filter config paths to those whose data exists; print what is skipped."""
+    from .config import load_config
+
+    keep = []
+    for p in paths:
+        if is_available(load_config(p)):
+            keep.append(p)
+        else:
+            print(f"[{what}] SKIPPING {p}: data not available in dataset/ (AMI-only mode)")
+    if not keep:
+        raise FileNotFoundError(f"[{what}] none of {paths} is available")
+    return keep
+
+
 def reference_counts(cfg: Cfg) -> dict[str, int]:
     return {r: speaker_count(read_rttm(rttm_path(cfg, r))) for r in list_recordings(cfg)}
 

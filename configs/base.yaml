@@ -92,6 +92,14 @@ postprocess:
   single_speaker_threshold: null
   tuned_file: null            # results/tuning/<method>/best.yaml, filled by `tune`
 
+tuning:
+  # val sets used by `tune` and by AffinityNet model selection; a set whose data is not in
+  # dataset/ is skipped with a warning (VoxConverse is not available yet: AMI-only for now)
+  val_configs: [configs/ami_dev.yaml, configs/vox_val.yaml]
+  min_cluster_share: [0.0, 0.01, 0.02, 0.03, 0.05, 0.07]
+  merge_threshold: [null, 0.5, 0.6, 0.7, 0.8]
+  single_speaker_threshold: [null, 0.5, 0.6, 0.7]
+
 evaluation:
   rel_error_tol: 0.15
   collar: 0.25
