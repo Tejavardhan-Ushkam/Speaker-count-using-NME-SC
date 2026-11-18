@@ -106,8 +106,28 @@ def check_data() -> bool:
         lines += ["", "## VoxConverse 80/20 split (by recording, stratified by K bin, seed 0)", "",
                   "| Split | recordings | K histogram | K-bin histogram |", "|---|---|---|---|"] + split_lines
 
-    lines += ["", "Mode baseline (always predict the training mode) and ambiguous-segment fractions are "
-              "added in later phases.", ""]
+    # segments / ambiguous fraction from the `prepare` cache (oracle VAD splits)
+    seg_lines = []
+    import json
+
+    for corpus, split in (("ami", "train"), ("ami", "dev"), ("ami", "test"),
+                          ("voxconverse", "train"), ("voxconverse", "val"), ("voxconverse", "test")):
+        d = ROOT / "work" / corpus / split / "segments"
+        files = sorted(d.glob("*.json")) if d.is_dir() else []
+        if not files:
+            seg_lines.append(f"| {corpus} {split} | not prepared | | |")
+            continue
+        n = a = 0
+        for f in files:
+            m = json.loads(f.read_text())["meta"]
+            n += m["n_segments"]
+            a += m["n_ambiguous"]
+        seg_lines.append(f"| {corpus} {split} ({len(files)} rec) | {n} | {a} | {100 * a / max(1, n):.1f} % |")
+    lines += ["", "## Segments and overlap-aware labels (oracle VAD, 1.5 s / 0.75 s)", "",
+              "Ambiguous = no speaker covers >= 90 % of the window, or another speaker covers > 10 %.", "",
+              "| split | segments | ambiguous | ambiguous % |", "|---|---|---|---|"] + seg_lines
+    lines += ["", "Mode baseline: AMI train mode K = 4 (129/136); always predicting 4 scores 15/16 = 93.8 % "
+              "exact on AMI test.", ""]
     if problems:
         lines += ["## Problems", ""] + [f"- {p}" for p in problems]
     out = ROOT / "results" / "data_summary.md"
