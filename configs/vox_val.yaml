@@ -1,0 +1,10 @@
+dataset:
+  corpus: voxconverse
+  split: val
+  role: val
+  audio_dir: dataset/voxconverse/audio/dev
+  rttm_dir: dataset/voxconverse/rttm/dev
+  recordings_file: splits/voxconverse_val.txt
+  train_config: configs/vox_train.yaml
+clustering:
+  k_max: 25

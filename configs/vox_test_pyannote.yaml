@@ -1,0 +1,11 @@
+dataset:
+  corpus: voxconverse
+  split: test_pyannote
+  role: test
+  audio_dir: dataset/voxconverse/audio/test
+  rttm_dir: dataset/voxconverse/rttm/test
+  train_config: configs/vox_train.yaml
+vad:
+  source: pyannote
+clustering:
+  k_max: 25

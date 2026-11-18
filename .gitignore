@@ -1,0 +1,19 @@
+# data, caches, model weights
+dataset/
+work*/
+checkpoints/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# results: ignored except the final summaries, predictions and plots (prompt §9, Phase 8)
+results*/**
+!results*/
+!results*/**/
+!results/**/summary.md
+!results/SUMMARY.md
+!results/data_summary.md
+!results/plots/**
+!results/**/predictions.csv
+!results/tuning/*.csv
+!results/tuning/*.yaml

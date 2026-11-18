@@ -1,0 +1,4 @@
+# AffinityNet training: train + val split configs; model/optimiser defaults live in base.yaml (affnet.*).
+affnet:
+  train_configs: [configs/ami_train.yaml, configs/vox_train.yaml]
+  val_configs: [configs/ami_dev.yaml, configs/vox_val.yaml]

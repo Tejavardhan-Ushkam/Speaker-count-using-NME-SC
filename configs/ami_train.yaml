@@ -1,0 +1,9 @@
+dataset:
+  corpus: ami
+  split: train
+  role: train
+  audio_dir: dataset/train
+  rttm_dir: dataset/rttms/train
+  train_config: configs/ami_train.yaml
+clustering:
+  k_max: 10

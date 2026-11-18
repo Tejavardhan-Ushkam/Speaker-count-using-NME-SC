@@ -1,0 +1,11 @@
+dataset:
+  corpus: ami
+  split: test_pyannote
+  role: test
+  audio_dir: dataset/test
+  rttm_dir: dataset/rttms/test
+  train_config: configs/ami_train.yaml
+vad:
+  source: pyannote
+clustering:
+  k_max: 10

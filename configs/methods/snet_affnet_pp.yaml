@@ -1,0 +1,3 @@
+affinity: {source: affnet}
+clustering: {backend: spectralnet}
+postprocess: {enabled: true, tuned_file: results/tuning/snet_affnet_pp/best.yaml}

@@ -1,0 +1,142 @@
+# Shared defaults. Every overridable key must exist here (unknown keys raise).
+seed: 0
+
+paths:
+  work_dir: work
+  results_dir: results
+  checkpoints_dir: checkpoints
+
+dataset:
+  corpus: null            # ami | voxconverse
+  split: null             # train | dev | val | test | test_pyannote (also the work/results folder name)
+  role: null              # train | val | test (what the split is used for)
+  audio_dir: null
+  rttm_dir: null
+  audio_template: "{rec}.wav"
+  recordings_file: null   # optional list of recording ids (VoxConverse 80/20 split)
+  train_config: null      # this corpus' training-split config (baseline_mode reads its K mode)
+
+vad:
+  source: oracle          # oracle | pyannote
+  model: pyannote/segmentation-3.0
+  min_duration_on: 0.0
+  min_duration_off: 0.0
+  device: cuda
+
+segmentation:
+  window_sec: 1.5
+  hop_sec: 0.75
+  min_interval_sec: 1.5
+  merge_gap_sec: 0.0
+  center_single_window: true
+
+embedding:
+  model: speechbrain/spkrec-ecapa-voxceleb
+  savedir: checkpoints/ecapa
+  sample_rate: 16000
+  batch_size: 128
+  device: cuda
+  dim: 192
+
+labels:
+  clean_main_share: 0.90    # one speaker covers >= 90 % of the window
+  clean_other_share: 0.10   # every other speaker covers <= 10 %
+  mode: clean               # clean | most_overlap (old-project labels, ablation)
+
+affinity:
+  source: ecapa             # ecapa | affnet | siamese
+  checkpoint: checkpoints/affnet/best.pt
+  refine: false             # Wang et al. 2018 refinement ops (ablation)
+  refine_blur_sigma: 1.0
+  refine_percentile: 95.0
+  refine_multiplier: 0.01
+  oracle_overlap_removal: false   # ORACLE ablation only: drop ambiguous segments before counting
+  infer_chunk: 2048
+  infer_stride: 1024
+  infer_max_full: 6000
+
+clustering:
+  backend: exact            # exact | spectralnet | none (baseline_mode)
+  laplacian: unnormalized   # unnormalized | sym_norm
+  k_max: 10
+  p_min: 1
+  p_max_ratio: 0.25
+  p_max_abs: 60             # null = old behaviour (sweep up to 0.25 N)
+  coarse_stride: 4
+  fine_radius: 4
+  coarse_to_fine: true
+  eig_solver: sparse        # sparse (eigsh, smallest k_max+1) | dense (eigvalsh)
+  device: cuda
+  dtype: float32
+  kmeans_n_init: 10
+  min_segments: 2
+  eps: 1.0e-10
+  zero_diagonal: true
+
+spectralnet:
+  hidden: [256, 256]
+  lr: 1.0e-3
+  max_steps: 500
+  tol: 1.0e-5
+  patience: 20
+  jitter: 1.0e-6
+  warm_start: true
+  pretrained: checkpoints/spectralnet/pretrained.pt
+  pretrain_steps_per_session: 50
+  device: cuda
+
+postprocess:
+  enabled: false
+  min_cluster_share: 0.0
+  merge_threshold: null       # null = off
+  single_speaker_threshold: null
+  tuned_file: null            # results/tuning/<method>/best.yaml, filled by `tune`
+
+evaluation:
+  rel_error_tol: 0.15
+  collar: 0.25
+  bootstrap: 10000
+  frame_step: 0.01
+
+method:
+  name: none
+  tag: ""
+
+affnet:
+  train_configs: []
+  val_configs: []
+  in_dim: 192
+  d_model: 256
+  n_layers: 4
+  n_heads: 4
+  ffn: 1024
+  dropout: 0.1
+  time_encoding: true
+  time_min_period: 1.0
+  time_max_period: 4000.0
+  alpha_init: 0.1
+  head_activation: none
+  loss_bce_weight: 1.0
+  loss_supcon_weight: 0.5
+  supcon_temperature: 0.1
+  logit_w_init: 10.0
+  logit_b_init: -5.0
+  chunk_min: 256
+  chunk_max: 1024
+  speaker_dropout: 0.5
+  emb_noise: 0.01
+  segment_dropout: 0.1
+  session_mixing: false
+  corpus_balance: true
+  batch_chunks: 8
+  lr: 3.0e-4
+  weight_decay: 0.01
+  warmup_steps: 1000
+  grad_clip: 1.0
+  max_epochs: 60
+  chunks_per_session: 4
+  patience: 8
+  eer_max_pairs: 200000
+  out_dir: checkpoints/affnet
+  device: cuda
+  num_workers: 0
