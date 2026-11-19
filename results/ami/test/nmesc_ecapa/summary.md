@@ -1,6 +1,6 @@
 # nmesc_ecapa — ami / test
 
-git commit `d8b79361fd3b7cc87939c17899b061b48483a77a-dirty`; resolved config in `config_resolved.yaml`.
+git commit `ee0f80eb04050f8bcecfe88f09242757a5741e9b-dirty`; resolved config in `config_resolved.yaml`.
 
 ## Configuration
 
@@ -60,7 +60,7 @@ median 6, max 18, hits p_max_abs=60: 0/16
 
 ## Timing
 
-clustering total 1.06 min (63.7 s, 3.98 s/recording, max 14.3 s)
+clustering total 1.32 min (79.4 s, 4.96 s/recording, max 18.6 s)
 
 ## Against the baselines (paired; differences = this run − baseline)
 

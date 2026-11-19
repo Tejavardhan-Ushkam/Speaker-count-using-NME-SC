@@ -1,6 +1,6 @@
 # nmesc_ecapa_pp — ami / dev
 
-git commit `b44d128e6bd941225b19dfc1325b34673610b387-dirty`; resolved config in `config_resolved.yaml`.
+git commit `ee0f80eb04050f8bcecfe88f09242757a5741e9b-dirty`; resolved config in `config_resolved.yaml`.
 
 ## Configuration
 

@@ -1,0 +1,37 @@
+## Figures
+
+All in `results/plots/` (PNG 150 dpi + PDF). Method colours are fixed across figures.
+VoxConverse figures (`*_voxconverse`, `error_vs_k_vox`, VoxConverse affinity/t-SNE) are not produced: VoxConverse data is not available yet.
+
+- [`metrics_bar_ami.png`](plots/metrics_bar_ami.png) — AMI test: exact / ±1 / MAE per method with 95 % bootstrap CIs — compare each method with the grey always-mode baseline; CIs show how little n=16 separates methods.
+- [`der_bar_ami.png`](plots/der_bar_ami.png) — AMI test DER with and without overlapped speech — the gap between the bars is overlap (oracle VAD: missed speech comes only from overlap); compare clustering quality, not just K.
+- [`confusion_ami_baseline_mode.png`](plots/confusion_ami_baseline_mode.png) — Confusion true K vs K̂ for baseline_mode on AMI test — off-diagonal cells right of the diagonal are overestimates.
+- [`confusion_ami_nmesc_ecapa.png`](plots/confusion_ami_nmesc_ecapa.png) — Confusion true K vs K̂ for nmesc_ecapa on AMI test — off-diagonal cells right of the diagonal are overestimates.
+- [`confusion_ami_nmesc_ecapa_pp.png`](plots/confusion_ami_nmesc_ecapa_pp.png) — Confusion true K vs K̂ for nmesc_ecapa_pp on AMI test — off-diagonal cells right of the diagonal are overestimates.
+- [`confusion_ami_nmesc_affnet.png`](plots/confusion_ami_nmesc_affnet.png) — Confusion true K vs K̂ for nmesc_affnet on AMI test — off-diagonal cells right of the diagonal are overestimates.
+- [`confusion_ami_nmesc_affnet_pp.png`](plots/confusion_ami_nmesc_affnet_pp.png) — Confusion true K vs K̂ for nmesc_affnet_pp on AMI test — off-diagonal cells right of the diagonal are overestimates.
+- [`confusion_ami_snet_ecapa_pp.png`](plots/confusion_ami_snet_ecapa_pp.png) — Confusion true K vs K̂ for snet_ecapa_pp on AMI test — off-diagonal cells right of the diagonal are overestimates.
+- [`confusion_ami_snet_affnet_pp.png`](plots/confusion_ami_snet_affnet_pp.png) — Confusion true K vs K̂ for snet_affnet_pp on AMI test — off-diagonal cells right of the diagonal are overestimates.
+- [`error_hist_ami.png`](plots/error_hist_ami.png) — AMI test K̂−K histograms — mass right of 0 = overestimates (the old failure); look for long right tails (large overcounts).
+- [`scatter_k_ami.png`](plots/scatter_k_ami.png) — AMI test K̂ vs K (jittered) — points above the dashed line are overcounts.
+- [`cluster_shares_ami.png`](plots/cluster_shares_ami.png) — AMI test smallest-cluster share before post-processing — wrong counts (X) below the black tuned threshold are the tiny-extra-cluster errors pruning removes; correct recordings (o) below it would be hurt by pruning.
+- [`affinity_IS1009c.png`](plots/affinity_IS1009c.png) — IS1009c: cosine affinity, raw ECAPA vs AffinityNet, sorted by reference speaker (last block = ambiguous/overlap segments) — look for crisper diagonal blocks and split blocks.
+- [`spectrum_IS1009c.png`](plots/spectrum_IS1009c.png) — IS1009c: first k_max+3 Laplacian eigenvalues and eigengaps, exact vs SpectralNet Ritz — the tallest gap is K̂; Ritz ≈ exact means SpectralNet is a faithful backend.
+- [`affinity_TS3003b.png`](plots/affinity_TS3003b.png) — TS3003b: cosine affinity, raw ECAPA vs AffinityNet, sorted by reference speaker (last block = ambiguous/overlap segments) — look for crisper diagonal blocks and split blocks.
+- [`spectrum_TS3003b.png`](plots/spectrum_TS3003b.png) — TS3003b: first k_max+3 Laplacian eigenvalues and eigengaps, exact vs SpectralNet Ritz — the tallest gap is K̂; Ritz ≈ exact means SpectralNet is a faithful backend.
+- [`affinity_IS1009a.png`](plots/affinity_IS1009a.png) — IS1009a: cosine affinity, raw ECAPA vs AffinityNet, sorted by reference speaker (last block = ambiguous/overlap segments) — look for crisper diagonal blocks and split blocks.
+- [`spectrum_IS1009a.png`](plots/spectrum_IS1009a.png) — IS1009a: first k_max+3 Laplacian eigenvalues and eigengaps, exact vs SpectralNet Ritz — the tallest gap is K̂; Ritz ≈ exact means SpectralNet is a faithful backend.
+- [`affinity_TS3003d.png`](plots/affinity_TS3003d.png) — TS3003d: cosine affinity, raw ECAPA vs AffinityNet, sorted by reference speaker (last block = ambiguous/overlap segments) — look for crisper diagonal blocks and split blocks.
+- [`spectrum_TS3003d.png`](plots/spectrum_TS3003d.png) — TS3003d: first k_max+3 Laplacian eigenvalues and eigengaps, exact vs SpectralNet Ritz — the tallest gap is K̂; Ritz ≈ exact means SpectralNet is a faithful backend.
+- [`affinity_EN2002a.png`](plots/affinity_EN2002a.png) — EN2002a: cosine affinity, raw ECAPA vs AffinityNet, sorted by reference speaker (last block = ambiguous/overlap segments) — look for crisper diagonal blocks and split blocks.
+- [`spectrum_EN2002a.png`](plots/spectrum_EN2002a.png) — EN2002a: first k_max+3 Laplacian eigenvalues and eigengaps, exact vs SpectralNet Ritz — the tallest gap is K̂; Ritz ≈ exact means SpectralNet is a faithful backend.
+- [`affinity_TS3003a.png`](plots/affinity_TS3003a.png) — TS3003a: cosine affinity, raw ECAPA vs AffinityNet, sorted by reference speaker (last block = ambiguous/overlap segments) — look for crisper diagonal blocks and split blocks.
+- [`spectrum_TS3003a.png`](plots/spectrum_TS3003a.png) — TS3003a: first k_max+3 Laplacian eigenvalues and eigengaps, exact vs SpectralNet Ritz — the tallest gap is K̂; Ritz ≈ exact means SpectralNet is a faithful backend.
+- [`tsne_EN2002a.png`](plots/tsne_EN2002a.png) — EN2002a: t-SNE of raw ECAPA vs AffinityNet embeddings by reference speaker (grey = ambiguous) — tighter, better separated clusters mean a better affinity.
+- [`tuning_heatmap_nmesc_affnet_pp.png`](plots/tuning_heatmap_nmesc_affnet_pp.png) — nmesc_affnet_pp: validation objective over min_cluster_share × merge_threshold (red = chosen) — a flat map means post-processing has nothing to fix on val.
+- [`tuning_heatmap_nmesc_ecapa_pp.png`](plots/tuning_heatmap_nmesc_ecapa_pp.png) — nmesc_ecapa_pp: validation objective over min_cluster_share × merge_threshold (red = chosen) — a flat map means post-processing has nothing to fix on val.
+- [`tuning_heatmap_snet_affnet_pp.png`](plots/tuning_heatmap_snet_affnet_pp.png) — snet_affnet_pp: validation objective over min_cluster_share × merge_threshold (red = chosen) — a flat map means post-processing has nothing to fix on val.
+- [`tuning_heatmap_snet_ecapa_pp.png`](plots/tuning_heatmap_snet_ecapa_pp.png) — snet_ecapa_pp: validation objective over min_cluster_share × merge_threshold (red = chosen) — a flat map means post-processing has nothing to fix on val.
+- [`train_curves.png`](plots/train_curves.png) — AffinityNet training: loss keeps falling while val pair EER rises after ~epoch 9 (overfitting); val MAE is noisy on an all-K=4 dev set; dotted line = chosen checkpoint.
+- [`pstar_hist.png`](plots/pstar_hist.png) — Distribution of the NME-SC binarisation p* — all values far below the p_max_abs=60 cap, so the cap (the speed fix) never changes a result.
+- [`timing.png`](plots/timing.png) — Clustering time per recording vs N (log y) — every method is ~10× under the old mean; SpectralNet's extra cost is the per-session fit (~10 s).

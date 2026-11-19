@@ -1,6 +1,6 @@
 # baseline_mode — ami / test
 
-git commit `d8b79361fd3b7cc87939c17899b061b48483a77a-dirty`; resolved config in `config_resolved.yaml`.
+git commit `ee0f80eb04050f8bcecfe88f09242757a5741e9b-dirty`; resolved config in `config_resolved.yaml`.
 
 ## Configuration
 
@@ -44,7 +44,7 @@ Bootstrap 95 % CI: MAE [0.000, 0.188], exact [0.812, 1.000].
 
 | baseline | baseline exact | baseline MAE | Δ exact [95 % CI] | Δ MAE [95 % CI] | Wilcoxon p (|K^−K|) |
 |---|---|---|---|---|---|
-| nmesc_ecapa | 0.1875 | 1.5625 | +0.750 [+0.500, +0.938] | -1.500 [-2.062, -1.000] | 0.00124 |
+| nmesc_ecapa | 0.5625 | 0.4375 | +0.375 [+0.062, +0.688] | -0.375 [-0.688, -0.062] | 0.0339 |
 
 n = 16 recordings: statistical power is low.
 

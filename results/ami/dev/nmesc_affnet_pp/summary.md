@@ -1,6 +1,6 @@
 # nmesc_affnet_pp — ami / dev
 
-git commit `03c397639fc8b46421e4beac89184e5b41eafc30-dirty`; resolved config in `config_resolved.yaml`.
+git commit `ee0f80eb04050f8bcecfe88f09242757a5741e9b-dirty`; resolved config in `config_resolved.yaml`.
 
 ## Configuration
 

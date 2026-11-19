@@ -17,3 +17,10 @@ results*/**
 !results/**/predictions.csv
 !results/tuning/*.csv
 !results/tuning/*.yaml
+!results/ablations.md
+!results/inferences.md
+!results/spectralnet_oos/*.md
+!results/tuning/*/best.yaml
+!results/**/config_resolved.yaml
+!results/**/git_commit.txt
+!results/**/postprocess_used.yaml

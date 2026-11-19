@@ -1,0 +1,153 @@
+seed: 0
+paths:
+  work_dir: work
+  results_dir: results
+  checkpoints_dir: checkpoints
+dataset:
+  corpus: ami
+  split: dev
+  role: val
+  audio_dir: dataset/dev
+  rttm_dir: dataset/rttms/dev
+  audio_template: '{rec}.wav'
+  recordings_file: null
+  train_config: configs/ami_train.yaml
+vad:
+  source: oracle
+  model: pyannote/segmentation-3.0
+  min_duration_on: 0.0
+  min_duration_off: 0.0
+  device: cuda
+segmentation:
+  window_sec: 1.5
+  hop_sec: 0.75
+  min_interval_sec: 1.5
+  merge_gap_sec: 0.0
+  center_single_window: true
+embedding:
+  model: speechbrain/spkrec-ecapa-voxceleb
+  savedir: checkpoints/ecapa
+  sample_rate: 16000
+  batch_size: 128
+  device: cuda
+  dim: 192
+labels:
+  clean_main_share: 0.9
+  clean_other_share: 0.1
+affinity:
+  source: ecapa
+  checkpoint: checkpoints/affnet/best.pt
+  refine: false
+  refine_blur_sigma: 1.0
+  refine_percentile: 95.0
+  refine_multiplier: 0.01
+  oracle_overlap_removal: false
+  infer_chunk: 2048
+  infer_stride: 1024
+  infer_max_full: 6000
+clustering:
+  backend: spectralnet
+  laplacian: unnormalized
+  k_max: 10
+  p_min: 1
+  p_max_ratio: 0.25
+  p_max_abs: 60
+  coarse_stride: 4
+  fine_radius: 4
+  coarse_to_fine: true
+  eig_solver: sparse
+  device: cuda
+  dtype: float32
+  kmeans_n_init: 10
+  min_segments: 2
+  eps: 1.0e-10
+  zero_diagonal: true
+spectralnet:
+  hidden:
+  - 256
+  - 256
+  lr: 0.001
+  max_steps: 500
+  tol: 1.0e-05
+  patience: 20
+  jitter: 1.0e-06
+  warm_start: true
+  pretrained: checkpoints/spectralnet/pretrained.pt
+  pretrain_steps_per_session: 50
+  device: cuda
+postprocess:
+  enabled: true
+  min_cluster_share: 0.0
+  merge_threshold: null
+  single_speaker_threshold: null
+  tuned_file: null
+tuning:
+  val_configs:
+  - configs/ami_dev.yaml
+  - configs/vox_val.yaml
+  min_cluster_share:
+  - 0.0
+  - 0.01
+  - 0.02
+  - 0.03
+  - 0.05
+  - 0.07
+  merge_threshold:
+  - null
+  - 0.5
+  - 0.6
+  - 0.7
+  - 0.8
+  single_speaker_threshold:
+  - null
+  - 0.5
+  - 0.6
+  - 0.7
+evaluation:
+  rel_error_tol: 0.15
+  collar: 0.25
+  bootstrap: 10000
+  frame_step: 0.01
+method:
+  name: snet_ecapa_pp
+  tag: tuning_raw
+affnet:
+  train_configs: []
+  val_configs: []
+  in_dim: 192
+  d_model: 256
+  n_layers: 4
+  n_heads: 4
+  ffn: 1024
+  dropout: 0.1
+  time_encoding: true
+  time_min_period: 1.0
+  time_max_period: 4000.0
+  alpha_init: 0.1
+  head_activation: none
+  loss_bce_weight: 1.0
+  loss_supcon_weight: 0.5
+  supcon_temperature: 0.1
+  logit_w_init: 10.0
+  logit_b_init: -5.0
+  chunk_min: 256
+  chunk_max: 1024
+  label_mode: clean
+  speaker_dropout: 0.5
+  emb_noise: 0.01
+  segment_dropout: 0.1
+  session_mixing: false
+  corpus_balance: true
+  batch_chunks: 8
+  lr: 0.0003
+  weight_decay: 0.01
+  warmup_steps: 1000
+  grad_clip: 1.0
+  max_epochs: 60
+  chunks_per_session: 4
+  patience: 8
+  eer_max_pairs: 200000
+  out_dir: checkpoints/affnet
+  device: cuda
+  num_workers: 0
+  val_eig_solver: dense

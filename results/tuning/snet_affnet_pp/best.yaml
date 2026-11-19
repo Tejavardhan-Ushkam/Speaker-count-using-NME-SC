@@ -1,0 +1,12 @@
+min_cluster_share: 0.0
+merge_threshold: null
+single_speaker_threshold: null
+objective: 1.0
+objective_without_postprocessing: 1.0
+mean_mae: 0.0
+mean_mae_without_postprocessing: 0.0
+val_sets:
+- configs/ami_dev.yaml
+objective_definition: mean over available val sets of [exact (AMI dev) | rel_acc (Vox
+  val)]
+git_commit: ee0f80eb04050f8bcecfe88f09242757a5741e9b

@@ -1,6 +1,6 @@
 # snet_affnet_pp [no_warm] — ami / dev
 
-git commit `03c397639fc8b46421e4beac89184e5b41eafc30-dirty`; resolved config in `config_resolved.yaml`.
+git commit `ee0f80eb04050f8bcecfe88f09242757a5741e9b-dirty`; resolved config in `config_resolved.yaml`.
 
 ## Configuration
 
@@ -20,7 +20,7 @@ git commit `03c397639fc8b46421e4beac89184e5b41eafc30-dirty`; resolved config in 
 | postprocess.min_cluster_share (used) | 0.0 |
 | postprocess.merge_threshold (used) | None |
 | postprocess.single_speaker_threshold (used) | None |
-| postprocess.source (used) | config |
+| postprocess.source (used) | results/tuning/snet_affnet_pp/best.yaml |
 
 ## Counting accuracy
 
@@ -62,7 +62,7 @@ median 4, max 9, hits p_max_abs=60: 0/18
 
 ## Timing
 
-clustering total 3.77 min (226.2 s, 12.57 s/recording, max 21.0 s)
+clustering total 3.85 min (230.7 s, 12.82 s/recording, max 21.9 s)
 
 ## SpectralNet v2 self-check
 

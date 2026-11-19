@@ -10,11 +10,17 @@ PY=${PY:-/home/pm_students/miniconda3/envs/spectral/bin/python}
 LOGD=work/logs/overnight
 mkdir -p $LOGD
 STATUS=$LOGD/STATUS.md
-echo "# Overnight run $(date)  (git $(git rev-parse --short HEAD))" > $STATUS
-echo "| # | step | result | minutes |" >> $STATUS; echo "|---|---|---|---|" >> $STATUS
+START_AT=${START_AT:-1}   # resume: START_AT=40 ./scripts/overnight.sh  (steps before 40 are skipped)
+if [ "$START_AT" -le 1 ]; then
+  echo "# Overnight run $(date)  (git $(git rev-parse --short HEAD))" > $STATUS
+  echo "| # | step | result | minutes |" >> $STATUS; echo "|---|---|---|---|" >> $STATUS
+else
+  echo "| – | resumed at step $START_AT, $(date) (git $(git rev-parse --short HEAD)) | | |" >> $STATUS
+fi
 N=0
 step() {  # step "name" cmd...
   N=$((N+1)); local name=$1; shift
+  [ $N -lt "$START_AT" ] && return 0
   local log=$LOGD/$(printf "%02d" $N)_$(echo "$name" | tr ' /=' '___').log
   echo "[$(date +%H:%M)] START $N $name"
   local t0=$(date +%s)
