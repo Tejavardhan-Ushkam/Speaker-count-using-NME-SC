@@ -4,7 +4,7 @@ Estimates the number of speakers K per recording: ECAPA segment embeddings → (
 a session-level Transformer that refines them → cosine affinity → fast NME-SC p* search → exact eigh or
 SpectralNet v2 → eigengap K̂ → k-means labels → post-processing (prune tiny clusters, merge near-duplicates).
 
-**Results:** [`results/SUMMARY.md`](results/SUMMARY.md) (tables, ablations, inferences, failure analysis, figures).
+**Project guide (start here):** [`PROJECT_GUIDE.md`](PROJECT_GUIDE.md). **Results:** [`results/SUMMARY.md`](results/SUMMARY.md) (tables, ablations, inferences, failure analysis, figures).
 **Status:** trained/tuned on AMI only; VoxConverse test evaluated cross-corpus (`scripts/vox_crosscorpus.sh`, SUMMARY §1b). VoxConverse dev is still missing (Vox training/tuning steps are skipped automatically and picked up once
 `dataset/voxconverse/{audio,rttm}/{dev,test}` exists). The build plan is [`prompt.md`](prompt.md).
 
