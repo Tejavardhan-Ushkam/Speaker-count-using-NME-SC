@@ -50,7 +50,7 @@ and TS3003b/c (0–2 %, failure A). It cannot fix EN2002a/d, whose extra cluster
 (`cluster_shares_ami.png`: wrong counts above the black line survive). It hurt TS3003a: the 2 % and 2 % clusters were real
 speakers squeezed by the dominant one (90 %), so pruning went 4 → 3 (failure C, the predicted trade-off). On AffinityNet
 the tuner picked *no* post-processing, because the dev set had nothing left to fix; this is why `nmesc_affnet_pp` and
-`snet_affnet_pp` give the same K̂ as `nmesc_affnet` (the no-op warnings below are expected, not bugs) — and why nothing
+`snet_affnet_pp` give the same K̂ as `nmesc_affnet` (the no-op warnings above are expected, not bugs) — and why nothing
 caught the IS1009a/TS3003d overcounts on test.
 
 **How does the error depend on true K (VoxConverse)?** Not measurable: VoxConverse is not available, and AMI has only
