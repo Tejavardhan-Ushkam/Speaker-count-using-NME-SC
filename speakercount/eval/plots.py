@@ -47,12 +47,23 @@ def _save(fig, name: str, caption: str) -> None:
     print(f"[plots] {name}")
 
 
-def _pred(corpus, split, method, tag=""):
+TAG: dict[str, str] = {}      # corpus -> results tag used for plots (set in make_all)
+SUFFIX: dict[str, str] = {}   # corpus -> filename suffix
+TITLE: dict[str, str] = {}
+
+
+def _fn(corpus: str) -> str:
+    return corpus + SUFFIX.get(corpus, "")
+
+
+def _pred(corpus, split, method, tag=None):
+    tag = TAG.get(corpus, "") if tag is None else tag
     p = ROOT / "results" / corpus / split / method / tag / "predictions.csv"
     return pd.read_csv(p) if p.exists() else None
 
 
-def _rec(corpus, split, method, rec, tag=""):
+def _rec(corpus, split, method, rec, tag=None):
+    tag = TAG.get(corpus, "") if tag is None else tag
     p = ROOT / "results" / corpus / split / method / tag / "recs" / f"{rec}.npz"
     if not p.exists():
         return None
@@ -91,7 +102,7 @@ def metrics_bar(corpus, title):
         ax.set_title(label)
         ax.grid(axis="x", visible=False)
     fig.suptitle(f"{title} test (n={len(next(iter(preds.values())))}): counting metrics, 95 % bootstrap CI", y=1.02)
-    _save(fig, f"metrics_bar_{corpus}", f"{title} test: exact / ±1 / MAE per method with 95 % bootstrap CIs — "
+    _save(fig, f"metrics_bar_{_fn(corpus)}", f"{title} test: exact / ±1 / MAE per method with 95 % bootstrap CIs — "
           "compare each method with the grey always-mode baseline; CIs show how little n=16 separates methods.")
 
 
@@ -117,7 +128,7 @@ def der_bar(corpus, title):
                        Patch(facecolor=MUTED, alpha=0.45, hatch="////", edgecolor="white", label="overlap skipped (hatched)")],
               loc="upper left", fontsize=7)
     ax.set_title(f"{title} test: DER per method")
-    _save(fig, f"der_bar_{corpus}", f"{title} test DER with and without overlapped speech — the gap between the bars "
+    _save(fig, f"der_bar_{_fn(corpus)}", f"{title} test DER with and without overlapped speech — the gap between the bars "
           "is overlap (oracle VAD: missed speech comes only from overlap); compare clustering quality, not just K.")
 
 
@@ -139,7 +150,7 @@ def confusions(corpus, title):
         ax.set_ylabel("true K")
         ax.grid(False)
         ax.set_title(f"{title} test — {m}", fontsize=9)
-        _save(fig, f"confusion_{corpus}_{m}", f"Confusion true K vs K̂ for {m} on {title} test — off-diagonal cells "
+        _save(fig, f"confusion_{_fn(corpus)}_{m}", f"Confusion true K vs K̂ for {m} on {title} test — off-diagonal cells "
               "right of the diagonal are overestimates.")
 
 
@@ -164,7 +175,7 @@ def error_hist(corpus, title):
     fig.supxlabel("K̂ − K")
     fig.supylabel("recordings")
     fig.suptitle(f"{title} test: signed counting error", y=1.02)
-    _save(fig, f"error_hist_{corpus}", f"{title} test K̂−K histograms — mass right of 0 = overestimates (the old "
+    _save(fig, f"error_hist_{_fn(corpus)}", f"{title} test K̂−K histograms — mass right of 0 = overestimates (the old "
           "failure); look for long right tails (large overcounts).")
 
 
@@ -174,7 +185,7 @@ def scatter_k(corpus, title):
     if not preds:
         return
     rng = np.random.default_rng(0)
-    fig, ax = plt.subplots(figsize=(5, 4.2))
+    fig, ax = plt.subplots(figsize=(6.4, 4.2))
     mx = max(max(d.k_true.max(), d.k_pred.max()) for d in preds.values())
     ax.plot([0.5, mx + 0.5], [0.5, mx + 0.5], color=MUTED, lw=1, ls="--", label="K̂ = K")
     for i, (m, d) in enumerate(preds.items()):
@@ -183,9 +194,9 @@ def scatter_k(corpus, title):
                    edgecolor="white", linewidth=0.8, label=m)
     ax.set_xlabel("true K")
     ax.set_ylabel("predicted K̂ (jittered)")
-    ax.legend(fontsize=7, loc="upper left")
+    ax.legend(fontsize=7, loc="center left", bbox_to_anchor=(1.0, 0.5))
     ax.set_title(f"{title} test: K̂ vs K")
-    _save(fig, f"scatter_k_{corpus}", f"{title} test K̂ vs K (jittered) — points above the dashed line are overcounts.")
+    _save(fig, f"scatter_k_{_fn(corpus)}", f"{title} test K̂ vs K (jittered) — points above the dashed line are overcounts.")
 
 
 # ------------------------------------------------------------------ 5 error vs K (Vox)
@@ -207,8 +218,8 @@ def error_vs_k_vox():
     for ax in axes:
         ax.set_xlabel("true K bin")
     axes[0].legend(fontsize=7)
-    fig.suptitle("VoxConverse test: error vs true K")
-    _save(fig, "error_vs_k_vox", "VoxConverse test error per true-K bin — where counting breaks down as K grows.")
+    fig.suptitle(f"{TITLE.get('voxconverse', 'VoxConverse')} test: error vs true K")
+    _save(fig, "error_vs_k_vox" + SUFFIX.get("voxconverse", ""), f"{TITLE.get('voxconverse', 'VoxConverse')} test error per true-K bin — where counting breaks down as K grows.")
 
 
 # ------------------------------------------------------------------ 6 affinity, 7 spectrum, 11 tsne
@@ -363,7 +374,7 @@ def cluster_shares(corpus, title):
                        Line2D([], [], color=INK, lw=1.5, label="tuned min_cluster_share")], fontsize=7,
               loc="center left", bbox_to_anchor=(1.0, 0.5))
     ax.set_title(f"{title} test: smallest-cluster share, correct vs wrong (before pruning)")
-    _save(fig, f"cluster_shares_{corpus}", f"{title} test smallest-cluster share before post-processing — wrong "
+    _save(fig, f"cluster_shares_{_fn(corpus)}", f"{title} test smallest-cluster share before post-processing — wrong "
           "counts (X) below the black tuned threshold are the tiny-extra-cluster errors pruning removes; correct "
           "recordings (o) below it would be hurt by pruning.")
 
@@ -464,13 +475,14 @@ def timing():
     fig, ax = plt.subplots(figsize=(6, 3.4))
     any_ = False
     for m, mk in (("nmesc_ecapa", "o"), ("nmesc_affnet", "s"), ("snet_ecapa_pp", "^"), ("snet_affnet_pp", "D")):
-        for split in ("dev", "test"):
-            d = _pred("ami", split, m)
+        for corpus, split in (("ami", "dev"), ("ami", "test"), ("voxconverse", "test")):
+            d = _pred(corpus, split, m)
             if d is None:
                 continue
             any_ = True
-            ax.scatter(d.n_segments, d.cluster_sec, color=COLOR[m], marker=mk, s=22, edgecolor="white", linewidth=0.6,
-                       label=f"{m} ({'exact' if m.startswith('nmesc') else 'SpectralNet'})" if split == "test" else None)
+            ax.scatter(d.n_segments, d.cluster_sec, color=COLOR[m], marker=mk, s=22 if corpus == "ami" else 12,
+                       edgecolor="white", linewidth=0.6, alpha=1 if corpus == "ami" else 0.6,
+                       label=f"{m} ({'exact' if m.startswith('nmesc') else 'SpectralNet'})" if split == "test" and corpus == "ami" else None)
     if not any_:
         plt.close(fig)
         return
@@ -478,17 +490,23 @@ def timing():
     ax.axhline(old, color=COLOR["old"], ls="--", lw=1.5)
     ax.text(ax.get_xlim()[0], old, "  old NME-SC: 25.7 min / 16 rec (mean)", va="bottom", fontsize=7, color=MUTED)
     ax.set_yscale("log")
-    ax.set_xlabel("segments N")
+    ax.set_xscale("log")
+    ax.set_xlabel("segments N (log)")
     ax.set_ylabel("clustering time per recording (s)")
     ax.legend(fontsize=7, loc="lower right")
-    ax.set_title("AMI dev+test: clustering time vs N")
+    ax.set_title("Clustering time vs N (AMI dev+test large markers; VoxConverse test small)")
     _save(fig, "timing", "Clustering time per recording vs N (log y) — every method is ~10× under the old mean; "
           "SpectralNet's extra cost is the per-session fit (~10 s).")
 
 
 def make_all() -> None:
     CAPTIONS.clear()
-    for corpus, title in CORPORA:
+    TITLE.update({c: t for c, t in CORPORA})
+    if _pred("voxconverse", "test", "nmesc_ecapa", "") is None and _pred("voxconverse", "test", "nmesc_ecapa", "ami_trained") is not None:
+        TAG["voxconverse"], SUFFIX["voxconverse"] = "ami_trained", "_amitrained"
+        TITLE["voxconverse"] = "VoxConverse (AMI-trained, cross-corpus)"
+    for corpus, _ in CORPORA:
+        title = TITLE[corpus]
         metrics_bar(corpus, title)
         der_bar(corpus, title)
         confusions(corpus, title)
@@ -505,12 +523,25 @@ def make_all() -> None:
             affinity_plot("ami", "test", r, "AMI")
             spectrum_plot("ami", "test", r, "AMI", 10)
         tsne_plot("ami", "test", "EN2002a", "AMI")
+    d = _pred("voxconverse", "test", "nmesc_affnet")
+    if d is not None:
+        d = d.assign(ae=(d.k_pred - d.k_true).abs()).sort_values(["ae", "der"])
+        mid = d[(d.k_true >= 4) & (d.k_true <= 8)]
+        recs = list(dict.fromkeys(list(mid.recording_id[:2]) + list(d.recording_id[-2:])))
+        for r in recs:
+            affinity_plot("voxconverse", "test", r, TITLE["voxconverse"])
+            spectrum_plot("voxconverse", "test", r, TITLE["voxconverse"], 25)
+        if len(mid):
+            tsne_plot("voxconverse", "test", mid.recording_id.iloc[0], TITLE["voxconverse"])
     tuning_heatmaps()
     train_curves()
     pstar_hist()
     timing()
     lines = ["## Figures", "", "All in `results/plots/` (PNG 150 dpi + PDF). Method colours are fixed across figures."]
-    if _pred("voxconverse", "test", "nmesc_ecapa") is None:
+    if TAG.get("voxconverse") == "ami_trained":
+        lines += ["VoxConverse figures (`*_voxconverse_amitrained*`) are the **cross-corpus** runs: models, thresholds and "
+                  "the mode baseline (4) all come from AMI; nothing was fitted on VoxConverse."]
+    elif _pred("voxconverse", "test", "nmesc_ecapa") is None:
         lines += ["VoxConverse figures (`*_voxconverse`, `error_vs_k_vox`, VoxConverse affinity/t-SNE) are not produced: "
                   "VoxConverse data is not available yet."]
     lines += [""] + [f"- [`{n}.png`](plots/{n}.png) — {c}" for n, c in CAPTIONS]

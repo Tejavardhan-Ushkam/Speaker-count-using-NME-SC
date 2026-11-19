@@ -1,0 +1,4 @@
+min_cluster_share: 0.0
+merge_threshold: null
+single_speaker_threshold: null
+source: results/tuning_ami_only/nmesc_affnet_pp/best.yaml

@@ -1,0 +1,4 @@
+min_cluster_share: 0.03
+merge_threshold: 0.6
+single_speaker_threshold: null
+source: results/tuning_ami_only/snet_ecapa_pp/best.yaml

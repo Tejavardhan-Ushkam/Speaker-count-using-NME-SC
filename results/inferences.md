@@ -4,7 +4,7 @@
 |---|---|---|---|---|
 | AMI test exact | 0.5625 | ≥ 0.80, and compared against "always 4" (0.9375) | **0.8125**; always-4 = 0.9375 | ≥ 0.80 yes; **below the always-4 baseline** |
 | AMI test MAE | 0.4375 | ≤ 0.25 | **0.500** | **no** — two large overcounts (IS1009a K̂=7, TS3003d K̂=8) |
-| VoxConverse MAE / rel. acc | – | ≥ 20 % MAE reduction vs `nmesc_ecapa` | not measurable | VoxConverse data unavailable |
+| VoxConverse MAE / rel. acc | – | ≥ 20 % MAE reduction vs `nmesc_ecapa` | cross-corpus only (AMI-trained): `nmesc_ecapa` 2.35; best `nmesc_ecapa_pp` 2.09 (−11 %, n.s.); `snet_affnet_pp` 2.78 (+18 %) | **no** (as measured cross-corpus; Vox-trained run pending VoxConverse dev) |
 | SpectralNet vs exact K̂ agreement | – | ≥ 90 % | **100 %** (18/18 dev, 16/16 test) | yes |
 | K̂ = k_max saturations | 2/16 | 0 | **0** | yes |
 | AMI test clustering time | 25.7 min | ≤ 3 min | 1.1 min (exact backend); **3.9 min** (`snet_affnet_pp`) | exact yes; SpectralNet **no** (the per-recording exact eigh self-check is ~1 min of it) |
@@ -53,8 +53,32 @@ the tuner picked *no* post-processing, because the dev set had nothing left to f
 `snet_affnet_pp` give the same K̂ as `nmesc_affnet` (the no-op warnings above are expected, not bugs) — and why nothing
 caught the IS1009a/TS3003d overcounts on test.
 
-**How does the error depend on true K (VoxConverse)?** Not measurable: VoxConverse is not available, and AMI has only
-K=3 (1 recording, always right) and K=4. This is the central gap of this evaluation (see Next steps 1).
+**How does the error depend on true K (VoxConverse, cross-corpus — §1b)?** All models and thresholds were trained and
+tuned on AMI only and applied unchanged to VoxConverse test (232 recordings, K = 1–21); nothing was fitted on VoxConverse.
+- *AMI's ranking does not transfer.* The best Vox method on exact accuracy is plain `nmesc_ecapa` (0.409, MAE 2.35).
+  Post-processing gives the lowest MAE (`nmesc_ecapa_pp` 2.09, not significant: Δ MAE −0.27 [−0.77, +0.19]) and the lowest
+  DER (0.079), but loses exact accuracy (0.358). Every AffinityNet system is significantly *worse* than raw ECAPA (exact
+  0.293, Δ MAE +0.39 [+0.13, +0.69], p = 0.003). AMI's best method, `snet_ecapa_pp`, falls to 0.302. "Always 4" scores 0.095,
+  so on Vox the counting methods clearly beat the prior, which AMI could not show.
+- *Error depends on K in two opposite regimes* (`error_vs_k_vox_amitrained.png`):
+  - Small K (1–3) is overcounted by the methods without post-processing (K=1: MAE 4.8 raw, 5.3 AffinityNet). The cause is
+    one specific failure. In 12 short recordings (≤ 88 segments, < 3 min), NME-SC picks p* = 1–2. The 1-NN graph then
+    breaks into many components, and the eigengap returns K̂ = 14–24 (MAE 17.6 on those 12; 1.52 on the other 220, exact
+    0.43). Post-processing hides this by pruning the fragments (K=1 MAE 0.8), so the error is in the p* search, not in
+    the embeddings.
+  - Large K (8+) is undercounted by every method (signed error −1.7 to −8.5 for K 13+). Pruning with AMI's 2–3 % share
+    removes real minor speakers: `nmesc_ecapa_pp` undercounts by more than 5 on 21 recordings, and K 13+ MAE goes from 3.9
+    (raw) to 6.8 (pp) and 8.5 (`snet_ecapa_pp`). A share tuned on 4-speaker meetings is too high for TV debates with many
+    short-turn speakers.
+- *AffinityNet does not generalise across corpora.* It was selected on 18 AMI dev meetings, all with K = 4 (see the
+  selection-noise discussion above). On Vox it adds about +1 speaker at every K ≤ 7 (signed +1.3 to +5.3), which is the
+  same "raised cosines split a speaker" symptom as IS1009a/TS3003d, and it saturates at k_max = 25 three times.
+- *SpectralNet* gives the same K̂ as the exact backend on Vox too (`snet_affnet_pp` vs `nmesc_affnet_pp`: same exact /
+  ±1, MAE 2.78 vs 2.75). The extra error comes from short recordings, where a 500-step fit on < 90 points is noisier.
+- *Realistic VAD* (pyannote) barely changes counting on Vox (`nmesc_ecapa` 0.405 vs 0.409 oracle). DER rises
+  0.125 → 0.155.
+- These are cross-corpus numbers and are not the plan's Vox targets: the ≥ 20 % MAE reduction needs Vox-trained and
+  Vox-tuned systems (Next steps 1).
 
 **Does the gain hold with pyannote VAD?** With pyannote/segmentation-3.0 instead of oracle VAD on AMI test:
 `nmesc_ecapa` 0.688 exact / MAE 0.375 (oracle 0.562 / 0.438), `snet_affnet_pp` 0.750 / 0.438 (oracle 0.812 / 0.500).
@@ -88,8 +112,15 @@ validation, wider output and better pairs.
 
 ## 7. Next steps (ranked)
 
-1. **Add VoxConverse** (K = 1–21). It is required by the plan for training, tuning and testing, and AMI alone cannot
-   distinguish counting skill from "always 4". The code is ready: `make-splits`, `prepare`, then rerun `run_all.sh`.
+1. **Train and tune on VoxConverse dev** (K = 1–21). This needs `dataset/voxconverse/{audio,rttm}/dev`, which is still
+   missing; only test is present. The cross-corpus run (§1b) shows that AMI-only selection does not transfer. Run
+   `make-splits`, then `prepare`, then retrain into a new checkpoint folder (keeping `checkpoints/affnet_ami_only`), then retune
+   on AMI dev + Vox val.
+1b. **Lower bound on p* for short recordings:** p* = 1–2 shatters the graph on the 12 shortest Vox recordings
+   (K̂ = 14–24). Add a p_min (absolute, e.g. 3–5, or relative to N) and/or cap K̂ by the number of graph components with at
+   least a minimum share. **Tune it on Vox val only**, not on test.
+1c. **Make the prune share depend on K or duration** (or tune it on Vox val): 2–3 % from AMI removes real minor
+   speakers when K ≥ 8.
 2. **Make AffinityNet selection robust:** select on pair EER (smooth) plus count MAE on *speaker-dropout validation
    variants* of AMI dev (K = 1–4), or average the last N epochs / use EMA weights — the current pick is one noisy epoch.
 3. **Constrain AffinityNet's cosine scale:** the residual drifted to a space where all cosines are high (mean 0.45);

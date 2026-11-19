@@ -141,6 +141,69 @@ def ablation_table(corpus: str = "ami") -> list[str]:
     return L
 
 
+def _headline(corpus, split, title, tag="") -> list[str]:
+    L: list[str] = []
+    rows = {}
+    for m in METHODS:
+        d = _load(corpus, split, m, tag)
+        if d is not None:
+            rows[m] = _metrics(d)
+    L += [f"### {title}", ""] + _table(rows) + [""]
+    ref = _load(corpus, split, "nmesc_ecapa", tag)
+    if ref is not None:
+        L += [f"Paired vs `nmesc_ecapa` ({title}; Δ = method − nmesc_ecapa; 10 000 bootstrap resamples; Wilcoxon on |K^−K|):", "",
+              "| method | Δ exact [95 % CI] | Δ MAE [95 % CI] | Wilcoxon p |", "|---|---|---|---|"]
+        for m in METHODS:
+            d = _load(corpus, split, m, tag)
+            if d is None or m == "nmesc_ecapa":
+                continue
+            j = d.merge(ref[["recording_id", "k_pred"]], on="recording_id", suffixes=("", "_ref"))
+            pc = paired_compare(j.k_true, j.k_pred, j.k_pred_ref)
+            L.append(f"| {m} | {pc['d_exact']:+.3f} [{pc['d_exact_ci'][0]:+.3f}, {pc['d_exact_ci'][1]:+.3f}] | "
+                     f"{pc['d_mae']:+.3f} [{pc['d_mae_ci'][0]:+.3f}, {pc['d_mae_ci'][1]:+.3f}] | {pc['wilcoxon_p']:.3g} |")
+        L += [""]
+    # per-recording K^
+    kp = {m: _load(corpus, split, m, tag) for m in METHODS}
+    kp = {m: d.set_index("recording_id").k_pred for m, d in kp.items() if d is not None}
+    if kp:
+        tab = pd.DataFrame(kp)
+        first = next(d for d in (_load(corpus, split, m, tag) for m in METHODS) if d is not None)
+        tab.insert(0, "K", first.set_index("recording_id").k_true)
+        if len(tab) <= 40:
+            L += [f"Per-recording K^ ({title}):", "", "| rec | " + " | ".join(tab.columns) + " |",
+                  "|" + "---|" * (len(tab.columns) + 1)]
+            for rec, r in tab.iterrows():
+                L.append(f"| {rec} | " + " | ".join(str(int(v)) if pd.notna(v) else "–" for v in r.values) + " |")
+            L += [""]
+    # pyannote VAD
+    vrows = {}
+    for m in METHODS:
+        d = _load(corpus, f"{split}_pyannote", m, tag)
+        if d is not None:
+            vrows[m + " (pyannote VAD)"] = _metrics(d)
+    if vrows:
+        L += [f"Realistic VAD (pyannote/segmentation-3.0), {title}:", ""] + _table(vrows) + [""]
+    # per-K-bin breakdown (VoxConverse: where counting breaks down)
+    from .metrics import K_BINS, k_bin
+    bins = {}
+    for m in METHODS:
+        d = _load(corpus, split, m, tag)
+        if d is not None and d.k_true.nunique() > 2:
+            d = d.assign(b=d.k_true.map(k_bin), ae=(d.k_pred - d.k_true).abs())
+            bins[m] = d.groupby("b").agg(n=("ae", "size"), mae=("ae", "mean"), exact=("ae", lambda x: (x == 0).mean()),
+                                         signed=("k_pred", "mean"))
+            bins[m]["signed"] = d.assign(se=d.k_pred - d.k_true).groupby("b").se.mean()
+    if bins:
+        order = [b[2] for b in K_BINS if b[2] in next(iter(bins.values())).index]
+        n = next(iter(bins.values())).n
+        L += [f"Per-true-K-bin MAE / signed error ({title}):", "",
+              "| method | " + " | ".join(f"K {b} (n={int(n[b])})" for b in order) + " |", "|" + "---|" * (len(order) + 1)]
+        for m, g in bins.items():
+            L.append(f"| {m} | " + " | ".join(f"{g.mae[b]:.2f} / {g.signed[b]:+.2f}" for b in order) + " |")
+        L += [""]
+    return L
+
+
 def compare() -> None:
     (ROOT / "results" / "ablations.md").write_text("\n".join(ablation_table()) + "\n")
     L = ["# Speaker-count v2 — cross-method summary", "",
@@ -148,51 +211,19 @@ def compare() -> None:
     avail = [h for h in HEADLINE if any(_load(c, s, m) is not None for m in METHODS for c, s, _ in [h])]
     missing = [h[2] for h in HEADLINE if h not in avail]
     if missing:
-        L += [f"> **Not available:** {', '.join(missing)} — VoxConverse data is not in `dataset/` yet; "
-              "everything below is AMI-only (training, tuning and testing).", ""]
+        L += [f"> **Not available:** {', '.join(missing)} with VoxConverse-trained models — VoxConverse dev (the "
+              "training/validation data) is not in `dataset/` yet, so training and tuning are AMI-only. VoxConverse test "
+              "is evaluated cross-corpus with the AMI-trained models in §1b.", ""]
 
     L += ["## 1. Headline (test sets, oracle VAD)", ""]
     for corpus, split, title in avail:
-        rows = {}
-        for m in METHODS:
-            d = _load(corpus, split, m)
-            if d is not None:
-                rows[m] = _metrics(d)
-        L += [f"### {title}", ""] + _table(rows) + [""]
-        ref = _load(corpus, split, "nmesc_ecapa")
-        if ref is not None:
-            L += [f"Paired vs `nmesc_ecapa` ({title}; Δ = method − nmesc_ecapa; 10 000 bootstrap resamples; Wilcoxon on |K^−K|):", "",
-                  "| method | Δ exact [95 % CI] | Δ MAE [95 % CI] | Wilcoxon p |", "|---|---|---|---|"]
-            for m in METHODS:
-                d = _load(corpus, split, m)
-                if d is None or m == "nmesc_ecapa":
-                    continue
-                j = d.merge(ref[["recording_id", "k_pred"]], on="recording_id", suffixes=("", "_ref"))
-                pc = paired_compare(j.k_true, j.k_pred, j.k_pred_ref)
-                L.append(f"| {m} | {pc['d_exact']:+.3f} [{pc['d_exact_ci'][0]:+.3f}, {pc['d_exact_ci'][1]:+.3f}] | "
-                         f"{pc['d_mae']:+.3f} [{pc['d_mae_ci'][0]:+.3f}, {pc['d_mae_ci'][1]:+.3f}] | {pc['wilcoxon_p']:.3g} |")
-            L += [""]
-        # per-recording K^
-        kp = {m: _load(corpus, split, m) for m in METHODS}
-        kp = {m: d.set_index("recording_id").k_pred for m, d in kp.items() if d is not None}
-        if kp:
-            tab = pd.DataFrame(kp)
-            first = next(d for d in (_load(corpus, split, m) for m in METHODS) if d is not None)
-            tab.insert(0, "K", first.set_index("recording_id").k_true)
-            if len(tab) <= 40:
-                L += [f"Per-recording K^ ({title}):", "", "| rec | " + " | ".join(tab.columns) + " |",
-                      "|" + "---|" * (len(tab.columns) + 1)]
-                for rec, r in tab.iterrows():
-                    L.append(f"| {rec} | " + " | ".join(str(int(v)) if pd.notna(v) else "–" for v in r.values) + " |")
-                L += [""]
-        # pyannote VAD
-        vrows = {}
-        for m in METHODS:
-            d = _load(corpus, f"{split}_pyannote", m)
-            if d is not None:
-                vrows[m + " (pyannote VAD)"] = _metrics(d)
-        if vrows:
-            L += [f"Realistic VAD (pyannote/segmentation-3.0), {title}:", ""] + _table(vrows) + [""]
+        L += _headline(corpus, split, title)
+    if any(_load("voxconverse", "test", m, "ami_trained") is not None for m in METHODS):
+        L += ["## 1b. Cross-corpus: VoxConverse test with AMI-trained models", "",
+              "Models (AffinityNet, SpectralNet), post-processing thresholds and the mode baseline (always 4) all come "
+              "from AMI (git tag `ami-only-v1`); nothing was fitted or tuned on VoxConverse. k_max = 25. "
+              "SpectralNet warm start is off (no VoxConverse-sized pre-trained net; it had no effect on AMI).", ""]
+        L += _headline("voxconverse", "test", "VoxConverse test, AMI-trained", "ami_trained")
 
     L += ["## 2. Validation sets (all tuning and model selection used only these)", ""]
     for corpus, split, title in VAL:
