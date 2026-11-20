@@ -80,6 +80,43 @@ tuned on AMI only and applied unchanged to VoxConverse test (232 recordings, K =
 - These are cross-corpus numbers and are not the plan's Vox targets: the ≥ 20 % MAE reduction needs Vox-trained and
   Vox-tuned systems (Next steps 1).
 
+**Pruning tuned on VoxConverse (tag `vox_tuned`).** VoxConverse dev was imported, verified, and split 173/43, stratified
+by K. Two changes were added, both tuned on AMI dev + Vox val only:
+- a relative pruning mode, which prunes clusters smaller than a fraction of the average cluster 1/K̂;
+- a tuned NME-SC lower bound `p_min`.
+
+Tuned values (`results/tuning_vox/`), with merge 0.7 in both:
+
+| method | p_min | pruning |
+|---|---|---|
+| `nmesc_ecapa_pp` | 4 | absolute 3 % |
+| `snet_ecapa_pp` | 4 | relative 0.15/K̂ |
+
+| VoxConverse test | exact | ±1 | MAE | DER |
+|---|---|---|---|---|
+| always 2 (Vox-train mode) | 0.134 | 0.276 | 4.61 | – |
+| `nmesc_ecapa` (no pp) | **0.409** | 0.595 | 2.35 | 0.125 |
+| `snet_ecapa_pp`, AMI-tuned | 0.302 | 0.496 | 2.54 | 0.090 |
+| **`snet_ecapa_pp`, Vox-tuned** | 0.379 | **0.608** | **1.88** | **0.077** |
+| `nmesc_ecapa_pp`, Vox-tuned | 0.323 | 0.517 | 2.50 | 0.089 |
+
+- **`snet_ecapa_pp` (Vox-tuned) has the lowest VoxConverse MAE.**
+  - It is 20.3 % below `nmesc_ecapa` (Δ −0.48 [−1.03, +0.00], Wilcoxon p = 0.011). This meets the 20 % target in size,
+    but the bootstrap CI only just touches 0.
+  - It is clearly better than its own AMI-tuned version (Δ −0.67 [−0.91, −0.45]).
+  - AMI test is unchanged: 0.875 exact, with the same two errors (EN2002a/d).
+  - It still has lower *exact* accuracy than plain `nmesc_ecapa` on VoxConverse (0.379 vs 0.409).
+- **`p_min` = 4 fixes the short-recording failure.** On the 13 shortest files MAE goes from 16.3 to 0.62, with K̂ ≤ 5;
+  the earlier K̂ was 14–24. K=1 MAE goes from 4.8 to 0.13.
+- **The relative threshold protects many-speaker recordings.** K 13+ MAE is 5.06 for SpectralNet with relative pruning,
+  against 8.50 with absolute pruning.
+- **`nmesc_ecapa_pp` got worse on VoxConverse** (MAE 2.09 → 2.50 against its AMI-tuned version). Its tuner chose
+  absolute 3 %, which again deletes real minor speakers (K 13+ MAE 8.5). On AMI test it reached 0.812 exact but turned
+  TS3003a into K̂=2.
+  - This is a selection limitation: Vox val has only 43 recordings and 3 with K ≥ 11, so the absolute and relative rules
+    score almost the same on validation.
+  - Next fix: weight validation by K bin, or pool AMI dev + Vox val + speaker-dropout variants.
+
 **Does the gain hold with pyannote VAD?** With pyannote/segmentation-3.0 instead of oracle VAD on AMI test:
 `nmesc_ecapa` 0.688 exact / MAE 0.375 (oracle 0.562 / 0.438), `snet_affnet_pp` 0.750 / 0.438 (oracle 0.812 / 0.500).
 DER rises (0.127 → 0.169; 0.160 → 0.199) because VAD now adds misses and false alarms. Counting with raw ECAPA gets

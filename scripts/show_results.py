@@ -17,6 +17,11 @@ RUNS = {  # title -> (split dir, tag dir, methods)
     "VoxConverse test (232 recordings, AMI-trained models)": ("voxconverse/test", "ami_trained", METHODS),
     "VoxConverse test, pyannote VAD (AMI-trained)": ("voxconverse/test_pyannote", "ami_trained",
                                                      ["nmesc_ecapa", "snet_affnet_pp"]),
+    "VoxConverse test, pruning + p_min tuned on AMI dev + Vox val (tag vox_tuned)": (
+        "voxconverse/test", "vox_tuned", ["nmesc_ecapa_pp", "snet_ecapa_pp"]),
+    "VoxConverse test, mode baseline from Vox train (always 2)": ("voxconverse/test", "vox_trained", ["baseline_mode"]),
+    "AMI test, pruning + p_min tuned on AMI dev + Vox val (tag vox_tuned)": (
+        "ami/test", "vox_tuned", ["nmesc_ecapa_pp", "snet_ecapa_pp"]),
 }
 
 
