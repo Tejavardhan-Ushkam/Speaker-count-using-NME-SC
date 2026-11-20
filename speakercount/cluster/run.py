@@ -31,13 +31,16 @@ def tuned_postprocess(cfg: Cfg) -> dict:
     """min_cluster_share / merge_threshold / single_speaker_threshold actually used."""
     pp = cfg.postprocess
     vals = {"min_cluster_share": pp.min_cluster_share, "merge_threshold": pp.merge_threshold,
-            "single_speaker_threshold": pp.single_speaker_threshold, "source": "config"}
+            "single_speaker_threshold": pp.single_speaker_threshold, "share_mode": pp.share_mode,
+            "p_min": None, "source": "config"}
     if pp.enabled and pp.tuned_file:
         f = resolve_path(pp.tuned_file)
         if f.exists():
             best = yaml.safe_load(f.read_text())
             for k in ("min_cluster_share", "merge_threshold", "single_speaker_threshold"):
                 vals[k] = best[k]
+            vals["share_mode"] = best.get("share_mode", "absolute")   # older best.yaml files: absolute
+            vals["p_min"] = best.get("p_min")                          # tuned NME-SC lower bound on p
             vals["source"] = str(pp.tuned_file)
         elif cfg.dataset.role == "test":
             raise FileNotFoundError(f"{f} missing: run `python run.py tune --method {cfg.method.name}` first")
@@ -143,7 +146,8 @@ def cluster_session(sess: Session, z: np.ndarray, cfg: Cfg, pp_vals: dict) -> di
     labels_raw = relabel_by_size(labels_k)
     if cfg.postprocess.enabled:
         labels_pp, info = postprocess(labels_raw, zk, mean_cos, pp_vals["min_cluster_share"],
-                                      pp_vals["merge_threshold"], pp_vals["single_speaker_threshold"])
+                                      pp_vals["merge_threshold"], pp_vals["single_speaker_threshold"],
+                                      pp_vals.get("share_mode", "absolute"))
         out.update(pp_pruned=info["pruned"], pp_merged=info["merged"], pp_single=int(info["single_speaker"]))
     else:
         labels_pp = labels_raw
@@ -230,6 +234,9 @@ def cluster_split(cfg: Cfg, only=None, force: bool = False) -> list[dict]:
         print(f"[cluster {cfg.method.name}] baseline_mode predicts K={k} for {len(sessions)} recordings")
         return rows
     pp_vals = tuned_postprocess(cfg)
+    if pp_vals.get("p_min") is not None:   # tuned together with the post-processing (tune.py)
+        cfg.clustering.p_min = int(pp_vals["p_min"])
+        write_run_metadata(cfg, out)       # re-write so config_resolved.yaml shows the p_min actually used
     (out / "postprocess_used.yaml").write_text(yaml.safe_dump(pp_vals, sort_keys=False))
     emb = Embedder(cfg)
     for i, s in enumerate(sessions, 1):

@@ -129,3 +129,4 @@ threadpoolctl==3.7.0
 typing_extensions==4.16.0
 tzdata==2026.4
 urllib3==2.8.0
+pyarrow==25.0.1  # only for importing VoxConverse dev from the Hugging Face Parquet mirror (scripts/voxdev_import.py)

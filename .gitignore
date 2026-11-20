@@ -24,3 +24,4 @@ results*/**
 !results/**/config_resolved.yaml
 !results/**/git_commit.txt
 !results/**/postprocess_used.yaml
+work/downloads/

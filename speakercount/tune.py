@@ -4,6 +4,10 @@
    post-processing (tag `tuning_raw`); the per-recording npz keeps the raw labels and z.
 2. Re-apply post-processing for every grid point (cheap) and score.
 
+Grid: tuning.p_min (each value re-clusters the val sets) x pruning share (absolute values
+tuning.min_cluster_share and relative values tuning.min_cluster_share_rel, see postprocess.py)
+x merge x single-speaker. Output: <tuning.out_dir>/<method>.csv and <method>/best.yaml.
+
 Objective = 0.5 * exact(AMI dev) + 0.5 * relative_accuracy(Vox val), ties -> lower mean MAE.
 When a val set is unavailable its term is dropped and the remaining term gets weight 1
 (AMI-only mode); the sets actually used are written to best.yaml.
@@ -12,6 +16,7 @@ When a val set is unavailable its term is dropped and the remaining term gets we
 from __future__ import annotations
 
 import itertools
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -33,31 +38,41 @@ def tune(method: str, overrides: list[str] | None = None) -> dict:
     if not base.postprocess.enabled:
         raise ValueError(f"{method} has no post-processing to tune")
     vals = available_configs(list(base.tuning.val_configs), "tune")
-    raw_over = list(overrides or []) + ["method.tag=tuning_raw", "postprocess.tuned_file=null",
-                                        "postprocess.min_cluster_share=0.0", "postprocess.merge_threshold=null",
-                                        "postprocess.single_speaker_threshold=null"]
-    data = {}
-    for vc in vals:
-        cfg = load_config(vc, method=method, overrides=raw_over)
-        rows = cluster_split(cfg)
-        recs = []
-        for r in rows:
-            d = load_rec(cfg, r["recording_id"])
-            keep = np.asarray(d["keep"], bool)
-            recs.append((r["k_true"], np.asarray(d["labels_raw"])[keep], np.asarray(d["z"], np.float32)[keep],
-                         float(d["mean_cosine"])))
-        data[cfg.dataset.corpus] = (cfg, recs)
-
     t = base.tuning
-    grid = list(itertools.product(t.min_cluster_share, t.merge_threshold, t.single_speaker_threshold))
+    p_mins = [int(p) for p in (t.p_min or [1])]
+    raw_pp = ["postprocess.tuned_file=null", "postprocess.min_cluster_share=0.0",
+              "postprocess.merge_threshold=null", "postprocess.single_speaker_threshold=null"]
+    # data[p_min][corpus] = (cfg, recs): each p_min re-clusters the val sets once, without post-processing
+    data: dict[int, dict] = {}
+    for p_min in p_mins:
+        # cache tag: the default out_dir with p_min=1 keeps the old "tuning_raw" cache; anything else gets its own
+        stem = "tuning_raw" if str(t.out_dir or "results/tuning") == "results/tuning" else f"{Path(str(t.out_dir)).name}_raw"
+        tag = stem if p_min == 1 else f"{stem}_pmin{p_min}"
+        raw_over = list(overrides or []) + [f"method.tag={tag}", f"clustering.p_min={p_min}"] + raw_pp
+        data[p_min] = {}
+        for vc in vals:
+            cfg = load_config(vc, method=method, overrides=raw_over)
+            rows = cluster_split(cfg)
+            recs = []
+            for r in rows:
+                d = load_rec(cfg, r["recording_id"])
+                keep = np.asarray(d["keep"], bool)
+                recs.append((r["k_true"], np.asarray(d["labels_raw"])[keep], np.asarray(d["z"], np.float32)[keep],
+                             float(d["mean_cosine"])))
+            data[p_min][cfg.dataset.corpus] = (cfg, recs)
+
+    shares = [("absolute", s) for s in t.min_cluster_share] + \
+             [("relative", s) for s in (t.min_cluster_share_rel or []) if s > 0]
+    grid = list(itertools.product(p_mins, shares, t.merge_threshold, t.single_speaker_threshold))
     rows = []
-    for share, merge, single in grid:
-        row = {"min_cluster_share": share, "merge_threshold": _fmt(merge), "single_speaker_threshold": _fmt(single)}
+    for p_min, (mode, share), merge, single in grid:
+        row = {"p_min": p_min, "share_mode": mode, "min_cluster_share": share,
+               "merge_threshold": _fmt(merge), "single_speaker_threshold": _fmt(single)}
         terms, maes = [], []
-        for corpus, (cfg, recs) in data.items():
+        for corpus, (cfg, recs) in data[p_min].items():
             kt, kp = [], []
             for k_true, lab, z, mc in recs:
-                out, _ = postprocess(lab, z, mc, share, merge, single)
+                out, _ = postprocess(lab, z, mc, share, merge, single, mode)
                 kt.append(k_true)
                 kp.append(int(np.unique(out).size))
             m = count_metrics(kt, kp, cfg.evaluation.rel_error_tol)
@@ -70,16 +85,18 @@ def tune(method: str, overrides: list[str] | None = None) -> dict:
         row["mean_mae"] = float(np.mean(maes))
         rows.append(row)
     df = pd.DataFrame(rows)
-    out_dir = ROOT / "results" / "tuning"
+    out_dir = ROOT / str(t.out_dir or "results/tuning")
     out_dir.mkdir(parents=True, exist_ok=True)
     df.to_csv(out_dir / f"{method}.csv", index=False)
     # best: max objective, then min MAE, then the earliest (simplest) grid point
     df["_order"] = np.arange(len(df))
     best = df.sort_values(["objective", "mean_mae", "_order"], ascending=[False, True, True]).iloc[0]
-    none = df.iloc[0]  # grid point 0 = no post-processing
+    none = df.iloc[0]  # grid point 0 = smallest p_min, no post-processing
     as_val = lambda v: None if v == "off" else float(v)  # noqa: E731
     result = {
         "min_cluster_share": float(best.min_cluster_share),
+        "share_mode": str(best.share_mode),
+        "p_min": int(best.p_min),
         "merge_threshold": as_val(best.merge_threshold),
         "single_speaker_threshold": as_val(best.single_speaker_threshold),
         "objective": float(best.objective),
@@ -92,5 +109,5 @@ def tune(method: str, overrides: list[str] | None = None) -> dict:
     }
     dump_yaml(result, out_dir / method / "best.yaml")
     print(df.drop(columns="_order").sort_values(["objective", "mean_mae"], ascending=[False, True]).head(8).to_string(index=False))
-    print(f"[tune {method}] best: {yaml.safe_dump({k: result[k] for k in list(result)[:7]}, sort_keys=False)}")
+    print(f"[tune {method}] best: {yaml.safe_dump({k: result[k] for k in list(result)[:9]}, sort_keys=False)}")
     return result

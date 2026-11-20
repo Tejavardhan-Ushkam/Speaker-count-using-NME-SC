@@ -89,6 +89,7 @@ postprocess:
   min_cluster_share: 0.0
   merge_threshold: null       # null = off
   single_speaker_threshold: null
+  share_mode: absolute        # absolute (share < min_cluster_share) | relative (share < min_cluster_share / K)
   tuned_file: null            # results/tuning/<method>/best.yaml, filled by `tune`
 
 tuning:
@@ -98,6 +99,9 @@ tuning:
   min_cluster_share: [0.0, 0.01, 0.02, 0.03, 0.05, 0.07]
   merge_threshold: [null, 0.5, 0.6, 0.7, 0.8]
   single_speaker_threshold: [null, 0.5, 0.6, 0.7]
+  min_cluster_share_rel: []     # relative-mode values (fraction of the average cluster 1/K); [] = absolute only
+  p_min: [1]                    # NME-SC lower bounds on p to try (each one re-clusters the val sets)
+  out_dir: results/tuning       # where <method>.csv and <method>/best.yaml go
 
 evaluation:
   rel_error_tol: 0.15
