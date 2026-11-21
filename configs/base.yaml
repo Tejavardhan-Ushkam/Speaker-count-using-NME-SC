@@ -101,6 +101,9 @@ tuning:
   single_speaker_threshold: [null, 0.5, 0.6, 0.7]
   min_cluster_share_rel: []     # relative-mode values (fraction of the average cluster 1/K); [] = absolute only
   p_min: [1]                    # NME-SC lower bounds on p to try (each one re-clusters the val sets)
+  k_max: []                     # caps on K to try ([] = each val config's own k_max); each re-clusters
+  min_cluster_segments: []      # "segments"-mode pruning values (clusters with fewer segments are pruned)
+  objective: default            # default (exact AMI / rel_acc Vox, mean) | worst_exact (min over corpora of exact)
   out_dir: results/tuning       # where <method>.csv and <method>/best.yaml go
 
 evaluation:

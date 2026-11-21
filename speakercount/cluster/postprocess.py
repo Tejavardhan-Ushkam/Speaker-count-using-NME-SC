@@ -21,6 +21,8 @@ def postprocess(labels: np.ndarray, z: np.ndarray, mean_cosine: float,
     share_mode "absolute": prune clusters with share < min_cluster_share (e.g. 0.02 = 2 % of segments).
     share_mode "relative": prune clusters with share < min_cluster_share / K_in, i.e. smaller than that
     fraction of the average cluster (K_in = clusters before pruning), so the threshold shrinks as K grows.
+    share_mode "segments": prune clusters with fewer than min_cluster_share segments (an absolute amount of
+    speech, independent of recording length: segments are hop_sec = 0.75 s apart).
     """
     labels = np.asarray(labels, dtype=np.int64).copy()
     n = labels.size
@@ -31,11 +33,15 @@ def postprocess(labels: np.ndarray, z: np.ndarray, mean_cosine: float,
     # 1. prune tiny clusters: dissolve, re-assign members to the nearest remaining centroid (cosine on z)
     if min_cluster_share and min_cluster_share > 0:
         ids, counts = np.unique(labels, return_counts=True)
-        if share_mode not in ("absolute", "relative"):
-            raise ValueError(f"share_mode must be absolute|relative, got {share_mode}")
-        thr = min_cluster_share / ids.size if share_mode == "relative" else min_cluster_share
+        if share_mode not in ("absolute", "relative", "segments"):
+            raise ValueError(f"share_mode must be absolute|relative|segments, got {share_mode}")
+        if share_mode == "segments":
+            thr = float(min_cluster_share)
+            keep = ids[counts >= thr]
+        else:
+            thr = min_cluster_share / ids.size if share_mode == "relative" else min_cluster_share
+            keep = ids[counts / n >= thr]
         info["prune_threshold"] = float(thr)
-        keep = ids[counts / n >= thr]
         if keep.size == 0:  # never below K = 1: keep the largest
             keep = ids[[int(np.argmax(counts))]]
         drop = np.setdiff1d(ids, keep)

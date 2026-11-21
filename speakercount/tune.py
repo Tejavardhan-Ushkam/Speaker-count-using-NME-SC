@@ -8,9 +8,13 @@ Grid: tuning.p_min (each value re-clusters the val sets) x pruning share (absolu
 tuning.min_cluster_share and relative values tuning.min_cluster_share_rel, see postprocess.py)
 x merge x single-speaker. Output: <tuning.out_dir>/<method>.csv and <method>/best.yaml.
 
-Objective = 0.5 * exact(AMI dev) + 0.5 * relative_accuracy(Vox val), ties -> lower mean MAE.
-When a val set is unavailable its term is dropped and the remaining term gets weight 1
-(AMI-only mode); the sets actually used are written to best.yaml.
+Objective (tuning.objective):
+  default     = 0.5 * exact(AMI) + 0.5 * relative_accuracy(Vox), ties -> lower mean MAE;
+  worst_exact = min over corpora of exact accuracy, ties -> higher mean exact, then lower mean MAE
+                (for "at least X % exact on every corpus").
+Several val configs of the same corpus are pooled into one set (e.g. Vox train + Vox val).
+tuning.k_max (optional list) adds a cap on K to the grid; each value re-clusters, like p_min.
+When a val set is unavailable its term is dropped; the sets actually used are written to best.yaml.
 """
 
 from __future__ import annotations
@@ -40,16 +44,21 @@ def tune(method: str, overrides: list[str] | None = None) -> dict:
     vals = available_configs(list(base.tuning.val_configs), "tune")
     t = base.tuning
     p_mins = [int(p) for p in (t.p_min or [1])]
+    k_maxes = [int(k) for k in (t.k_max or [])] or [None]   # None = each val config's own k_max
     raw_pp = ["postprocess.tuned_file=null", "postprocess.min_cluster_share=0.0",
               "postprocess.merge_threshold=null", "postprocess.single_speaker_threshold=null"]
-    # data[p_min][corpus] = (cfg, recs): each p_min re-clusters the val sets once, without post-processing
-    data: dict[int, dict] = {}
-    for p_min in p_mins:
+    # data[(k_max, p_min)][corpus] = (cfg, recs): each pair re-clusters the val sets once, without post-processing
+    data: dict[tuple, dict] = {}
+    for k_max, p_min in itertools.product(k_maxes, p_mins):
         # cache tag: the default out_dir with p_min=1 keeps the old "tuning_raw" cache; anything else gets its own
         stem = "tuning_raw" if str(t.out_dir or "results/tuning") == "results/tuning" else f"{Path(str(t.out_dir)).name}_raw"
         tag = stem if p_min == 1 else f"{stem}_pmin{p_min}"
+        if k_max is not None:
+            tag += f"_kmax{k_max}"
         raw_over = list(overrides or []) + [f"method.tag={tag}", f"clustering.p_min={p_min}"] + raw_pp
-        data[p_min] = {}
+        if k_max is not None:
+            raw_over.append(f"clustering.k_max={k_max}")
+        data[(k_max, p_min)] = {}
         for vc in vals:
             cfg = load_config(vc, method=method, overrides=raw_over)
             rows = cluster_split(cfg)
@@ -59,17 +68,22 @@ def tune(method: str, overrides: list[str] | None = None) -> dict:
                 keep = np.asarray(d["keep"], bool)
                 recs.append((r["k_true"], np.asarray(d["labels_raw"])[keep], np.asarray(d["z"], np.float32)[keep],
                              float(d["mean_cosine"])))
-            data[p_min][cfg.dataset.corpus] = (cfg, recs)
+            prev = data[(k_max, p_min)].get(cfg.dataset.corpus)
+            data[(k_max, p_min)][cfg.dataset.corpus] = (cfg, (prev[1] if prev else []) + recs)
 
     shares = [("absolute", s) for s in t.min_cluster_share] + \
-             [("relative", s) for s in (t.min_cluster_share_rel or []) if s > 0]
-    grid = list(itertools.product(p_mins, shares, t.merge_threshold, t.single_speaker_threshold))
+             [("relative", s) for s in (t.min_cluster_share_rel or []) if s > 0] + \
+             [("segments", s) for s in (t.min_cluster_segments or []) if s > 0]
+    objective = str(t.objective or "default")
+    if objective not in ("default", "worst_exact"):
+        raise ValueError(f"tuning.objective must be default|worst_exact, got {objective}")
+    grid = list(itertools.product(k_maxes, p_mins, shares, t.merge_threshold, t.single_speaker_threshold))
     rows = []
-    for p_min, (mode, share), merge, single in grid:
-        row = {"p_min": p_min, "share_mode": mode, "min_cluster_share": share,
+    for k_max, p_min, (mode, share), merge, single in grid:
+        row = {"k_max": _fmt(k_max), "p_min": p_min, "share_mode": mode, "min_cluster_share": share,
                "merge_threshold": _fmt(merge), "single_speaker_threshold": _fmt(single)}
-        terms, maes = [], []
-        for corpus, (cfg, recs) in data[p_min].items():
+        terms, maes, exacts = [], [], []
+        for corpus, (cfg, recs) in data[(k_max, p_min)].items():
             kt, kp = [], []
             for k_true, lab, z, mc in recs:
                 out, _ = postprocess(lab, z, mc, share, merge, single, mode)
@@ -77,11 +91,17 @@ def tune(method: str, overrides: list[str] | None = None) -> dict:
                 kp.append(int(np.unique(out).size))
             m = count_metrics(kt, kp, cfg.evaluation.rel_error_tol)
             tag = "ami" if corpus == "ami" else "vox"
+            row[f"{tag}_n"] = len(kt)
             for k in ("exact", "within1", "mae", "signed", "rel_acc"):
                 row[f"{tag}_{k}"] = m[k]
             terms.append(m["exact"] if corpus == "ami" else m["rel_acc"])
             maes.append(m["mae"])
-        row["objective"] = float(np.mean(terms))   # 0.5/0.5 when both sets exist
+            exacts.append(m["exact"])
+        if objective == "worst_exact":
+            row["objective"] = float(np.min(exacts))
+        else:
+            row["objective"] = float(np.mean(terms))   # 0.5/0.5 when both sets exist
+        row["mean_exact"] = float(np.mean(exacts))
         row["mean_mae"] = float(np.mean(maes))
         rows.append(row)
     df = pd.DataFrame(rows)
@@ -90,13 +110,17 @@ def tune(method: str, overrides: list[str] | None = None) -> dict:
     df.to_csv(out_dir / f"{method}.csv", index=False)
     # best: max objective, then min MAE, then the earliest (simplest) grid point
     df["_order"] = np.arange(len(df))
-    best = df.sort_values(["objective", "mean_mae", "_order"], ascending=[False, True, True]).iloc[0]
-    none = df.iloc[0]  # grid point 0 = smallest p_min, no post-processing
+    keys = ["objective", "mean_exact", "mean_mae", "_order"] if objective == "worst_exact" else \
+           ["objective", "mean_mae", "_order"]
+    asc = [False, False, True, True] if objective == "worst_exact" else [False, True, True]
+    best = df.sort_values(keys, ascending=asc).iloc[0]
+    none = df.iloc[0]  # grid point 0 = first k_max, smallest p_min, no post-processing
     as_val = lambda v: None if v == "off" else float(v)  # noqa: E731
     result = {
         "min_cluster_share": float(best.min_cluster_share),
         "share_mode": str(best.share_mode),
         "p_min": int(best.p_min),
+        "k_max": None if best.k_max == "off" else int(best.k_max),
         "merge_threshold": as_val(best.merge_threshold),
         "single_speaker_threshold": as_val(best.single_speaker_threshold),
         "objective": float(best.objective),
@@ -104,10 +128,12 @@ def tune(method: str, overrides: list[str] | None = None) -> dict:
         "mean_mae": float(best.mean_mae),
         "mean_mae_without_postprocessing": float(none.mean_mae),
         "val_sets": vals,
-        "objective_definition": "mean over available val sets of [exact (AMI dev) | rel_acc (Vox val)]",
+        "objective_definition": ("min over corpora of exact accuracy (ties: mean exact, then mean MAE)"
+                                 if objective == "worst_exact" else
+                                 "mean over available val sets of [exact (AMI dev) | rel_acc (Vox val)]"),
         "git_commit": git_commit(),
     }
     dump_yaml(result, out_dir / method / "best.yaml")
-    print(df.drop(columns="_order").sort_values(["objective", "mean_mae"], ascending=[False, True]).head(8).to_string(index=False))
-    print(f"[tune {method}] best: {yaml.safe_dump({k: result[k] for k in list(result)[:9]}, sort_keys=False)}")
+    print(df.drop(columns="_order").sort_values(keys[:-1], ascending=asc[:-1]).head(8).to_string(index=False))
+    print(f"[tune {method}] best: {yaml.safe_dump({k: result[k] for k in list(result)[:10]}, sort_keys=False)}")
     return result

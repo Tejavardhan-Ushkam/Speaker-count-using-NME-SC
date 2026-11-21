@@ -32,7 +32,7 @@ def tuned_postprocess(cfg: Cfg) -> dict:
     pp = cfg.postprocess
     vals = {"min_cluster_share": pp.min_cluster_share, "merge_threshold": pp.merge_threshold,
             "single_speaker_threshold": pp.single_speaker_threshold, "share_mode": pp.share_mode,
-            "p_min": None, "source": "config"}
+            "p_min": None, "k_max": None, "source": "config"}
     if pp.enabled and pp.tuned_file:
         f = resolve_path(pp.tuned_file)
         if f.exists():
@@ -41,6 +41,7 @@ def tuned_postprocess(cfg: Cfg) -> dict:
                 vals[k] = best[k]
             vals["share_mode"] = best.get("share_mode", "absolute")   # older best.yaml files: absolute
             vals["p_min"] = best.get("p_min")                          # tuned NME-SC lower bound on p
+            vals["k_max"] = best.get("k_max")                          # tuned cap on K (scope experiments)
             vals["source"] = str(pp.tuned_file)
         elif cfg.dataset.role == "test":
             raise FileNotFoundError(f"{f} missing: run `python run.py tune --method {cfg.method.name}` first")
@@ -222,9 +223,12 @@ def cluster_split(cfg: Cfg, only=None, force: bool = False) -> list[dict]:
     out = results_dir(cfg)
     write_run_metadata(cfg, out)
     sessions = load_split(cfg, only)
-    k_max = cfg.clustering.k_max
     rows = []
     t0 = time.time()
+    pp_vals = tuned_postprocess(cfg) if cfg.clustering.backend != "none" else {}
+    if pp_vals.get("k_max") is not None:   # tuned together with the post-processing (tune.py)
+        cfg.clustering.k_max = int(pp_vals["k_max"])
+    k_max = cfg.clustering.k_max
     if cfg.clustering.backend == "none":  # baseline_mode
         k = mode_k(cfg)
         for s in sessions:
@@ -233,10 +237,10 @@ def cluster_split(cfg: Cfg, only=None, force: bool = False) -> list[dict]:
                                                 "largest_cluster_share": float("nan")})
         print(f"[cluster {cfg.method.name}] baseline_mode predicts K={k} for {len(sessions)} recordings")
         return rows
-    pp_vals = tuned_postprocess(cfg)
     if pp_vals.get("p_min") is not None:   # tuned together with the post-processing (tune.py)
         cfg.clustering.p_min = int(pp_vals["p_min"])
-        write_run_metadata(cfg, out)       # re-write so config_resolved.yaml shows the p_min actually used
+    if pp_vals.get("p_min") is not None or pp_vals.get("k_max") is not None:
+        write_run_metadata(cfg, out)       # re-write so config_resolved.yaml shows the values actually used
     (out / "postprocess_used.yaml").write_text(yaml.safe_dump(pp_vals, sort_keys=False))
     emb = Embedder(cfg)
     for i, s in enumerate(sessions, 1):
