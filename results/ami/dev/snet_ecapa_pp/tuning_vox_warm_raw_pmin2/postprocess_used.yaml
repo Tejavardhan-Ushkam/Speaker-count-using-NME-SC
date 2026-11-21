@@ -1,0 +1,6 @@
+min_cluster_share: 0.0
+merge_threshold: null
+single_speaker_threshold: null
+share_mode: absolute
+p_min: null
+source: config

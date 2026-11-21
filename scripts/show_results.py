@@ -20,6 +20,9 @@ RUNS = {  # title -> (split dir, tag dir, methods)
     "VoxConverse test, pruning + p_min tuned on AMI dev + Vox val (tag vox_tuned)": (
         "voxconverse/test", "vox_tuned", ["nmesc_ecapa_pp", "snet_ecapa_pp"]),
     "VoxConverse test, mode baseline from Vox train (always 2)": ("voxconverse/test", "vox_trained", ["baseline_mode"]),
+    "VoxConverse test, snet_ecapa_pp + SpectralNet warm start pre-trained on Vox train (tag vox_warm)": (
+        "voxconverse/test", "vox_warm", ["snet_ecapa_pp"]),
+    "AMI test, snet_ecapa_pp + warm start, Vox-tuned (tag vox_warm)": ("ami/test", "vox_warm", ["snet_ecapa_pp"]),
     "AMI test, pruning + p_min tuned on AMI dev + Vox val (tag vox_tuned)": (
         "ami/test", "vox_tuned", ["nmesc_ecapa_pp", "snet_ecapa_pp"]),
 }

@@ -1,0 +1,6 @@
+min_cluster_share: 0.15
+merge_threshold: 0.7
+single_speaker_threshold: null
+share_mode: relative
+p_min: 4
+source: results/tuning_vox_warm/snet_ecapa_pp/best.yaml
