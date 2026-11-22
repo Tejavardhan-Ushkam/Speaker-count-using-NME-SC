@@ -1,0 +1,11 @@
+# Model served by the website (speakercount/infer.py). Switch models by editing this file only.
+method: snet_ecapa_pp
+display_name: "SpecClustering v2 (ECAPA + NME-SC graph + SpectralNet + pruning)"
+tuned_file: deploy/tuned.yaml          # copy of results/tuning_vox/snet_ecapa_pp/best.yaml (report 1 model)
+k_max: 25                              # used only when tuned.yaml has no k_max (report-1 model was run with 25 on VoxConverse)
+device: cpu                            # free hosting has no GPU; env SPEAKERCOUNT_DEVICE=cuda overrides
+scope: "Best on recordings with 1-6 speakers; above 10 speakers it under-counts."
+measured_accuracy:                     # test sets, oracle speech regions (report 1); the website uses automatic VAD
+  "VoxConverse test, 1-6 speakers (117)": {exact: 0.59, within_1: 0.84, mae: 0.65}
+  "VoxConverse test, all (232)": {exact: 0.38, within_1: 0.61, mae: 1.88}
+  "AMI test (16)": {exact: 0.875, within_1: 1.0, mae: 0.125}

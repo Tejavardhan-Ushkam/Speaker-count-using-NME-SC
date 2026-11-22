@@ -49,6 +49,10 @@ def main(argv: list[str] | None = None) -> int:
     _add_common(p, config=True, method=True)
     p.add_argument("--recording", required=True)
 
+    p = sub.add_parser("predict", help="count speakers in any audio file (pyannote VAD, deployed model)")
+    p.add_argument("--audio", required=True)
+    p.add_argument("--model", default="deploy/model.yaml")
+
     args = ap.parse_args(argv)
     t0 = time.time()
 
@@ -90,6 +94,13 @@ def main(argv: list[str] | None = None) -> int:
             cluster_split(cfg, only=args.only, force=args.force)
         else:
             evaluate(cfg, force=args.force)
+        rc = 0
+    elif args.cmd == "predict":
+        import json
+
+        from speakercount.infer import SpeakerCounter
+
+        print(json.dumps(SpeakerCounter(args.model).predict(args.audio), indent=2))
         rc = 0
     elif args.cmd == "tune":
         from speakercount.tune import tune
