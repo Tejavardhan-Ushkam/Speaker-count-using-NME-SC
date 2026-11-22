@@ -35,7 +35,8 @@ def run_ui(audio: str):
     return summary_md(r), timeline_fig(r) if r.get("speakers") else None, r
 
 
-with gr.Blocks(title="Speaker Count") as demo:
+# delete_cache: uploaded files are removed from the server within an hour (checked every 30 min)
+with gr.Blocks(title="Speaker Count", delete_cache=(1800, 3600)) as demo:
     gr.Markdown("# 🎙️ SpeakerCount\nHow many people are speaking? Upload or record audio and find out.")
     with gr.Row():
         with gr.Column(scale=1):
