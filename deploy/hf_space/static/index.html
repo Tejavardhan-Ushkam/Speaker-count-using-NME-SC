@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Speaker Count</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--ink:#1b1f2a;--muted:#5d6475;--line:#e3e6ee;--acc:#4f46e5;--acc2:#eef0ff;--ok:#15803d;--warn:#b45309;--bad:#b91c1c}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1117;--card:#181b24;--ink:#e8eaf0;--muted:#9aa1b2;--line:#2a2f3c;--acc:#818cf8;--acc2:#23264a;--ok:#4ade80;--warn:#fbbf24;--bad:#f87171}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.wrap{max-width:980px;margin:0 auto;padding:24px 16px 48px}
+header{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;margin-bottom:20px}
+h1{margin:0;font-size:28px;letter-spacing:-.02em}h1 span{color:var(--acc)}.sub{margin:2px 0 0;color:var(--muted)}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border-radius:999px;border:1px solid var(--line);background:var(--card);font-size:14px}
+.dot{width:9px;height:9px;border-radius:50%;background:var(--warn)}.dot.ok{background:var(--ok)}.dot.bad{background:var(--bad)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:20px;margin-bottom:16px}
+.tabs{display:flex;gap:6px;margin-bottom:14px}.tab{border:1px solid var(--line);background:transparent;color:var(--ink);padding:8px 14px;border-radius:10px;cursor:pointer;font:inherit}
+.tab.on{background:var(--acc2);border-color:var(--acc);color:var(--acc);font-weight:600}
+.drop{border:2px dashed var(--line);border-radius:14px;padding:28px 16px;text-align:center;color:var(--muted);cursor:pointer}
+.drop.hover{border-color:var(--acc);background:var(--acc2)}
+button.main{background:var(--acc);color:#fff;border:0;padding:12px 20px;border-radius:12px;font:600 16px system-ui;cursor:pointer}
+button.main:disabled{opacity:.5;cursor:not-allowed}button.sec{background:transparent;border:1px solid var(--line);color:var(--ink);padding:9px 14px;border-radius:10px;cursor:pointer;font:inherit}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:14px}audio{width:100%;margin-top:12px}
+.hero{font-size:44px;font-weight:800;letter-spacing:-.03em;margin:0}.hero small{font-size:20px;font-weight:600;color:var(--muted)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+.stat{border:1px solid var(--line);border-radius:12px;padding:10px 12px}.stat b{display:block;font-size:20px}.stat span{color:var(--muted);font-size:13px}
+h2{font-size:18px;margin:18px 0 10px}.tl{position:relative}.tlrow{display:flex;align-items:center;gap:8px;margin:4px 0}
+.tlname{width:84px;font-size:13px;color:var(--muted);flex:none}.tlbar{position:relative;flex:1;height:18px;background:var(--acc2);border-radius:6px;overflow:hidden}
+.seg{position:absolute;top:0;bottom:0;border-radius:3px;cursor:pointer}.axis{display:flex;justify-content:space-between;margin-left:92px;font-size:12px;color:var(--muted)}
+.bars .b{display:flex;align-items:center;gap:8px;margin:6px 0}.bars .t{flex:1;height:14px;background:var(--acc2);border-radius:7px;overflow:hidden}.bars .f{height:100%}
+.note{border-left:4px solid var(--warn);background:color-mix(in srgb,var(--warn) 12%,transparent);padding:8px 12px;border-radius:8px;margin:8px 0}
+.err{border-left:4px solid var(--bad);background:color-mix(in srgb,var(--bad) 12%,transparent);padding:10px 12px;border-radius:8px}
+details summary{cursor:pointer;font-weight:600}table{border-collapse:collapse;width:100%;font-size:14px}td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+.muted{color:var(--muted)}.spin{width:18px;height:18px;border:3px solid var(--acc2);border-top-color:var(--acc);border-radius:50%;animation:s 1s linear infinite;display:inline-block;vertical-align:middle}
+@keyframes s{to{transform:rotate(360deg)}}.hide{display:none}footer{color:var(--muted);font-size:13px;margin-top:24px}
+ol{padding-left:20px}code{font-size:13px}
+</style>
+</head>
+<body><div class="wrap">
+<header><div><h1>Speaker<span>Count</span></h1><p class="sub">How many people are speaking? Upload a recording and find out.</p></div>
+<div class="pill" id="pill"><span class="dot" id="dot"></span><span id="ptext">Connecting…</span></div></header>
+
+<div class="card">
+  <div class="tabs"><button class="tab on" data-t="up">Upload file</button><button class="tab" data-t="rec">Record</button></div>
+  <div id="up"><div class="drop" id="drop">Drop an audio or video file here, or <u>choose a file</u><br><small>wav, mp3, m4a, flac, ogg, webm, mp4 · up to <span id="mb">100</span> MB · up to <span id="mins">30</span> min</small></div>
+    <input type="file" id="file" accept="audio/*,video/*" class="hide"></div>
+  <div id="rec" class="hide"><div class="row"><button class="sec" id="rbtn">● Start recording</button><span id="rtime" class="muted">0:00</span><span class="muted">(max 10 min)</span></div></div>
+  <div id="chosen" class="muted" style="margin-top:10px"></div><audio id="player" controls class="hide"></audio>
+  <div class="row"><button class="main" id="go" disabled>Count speakers</button><span id="status" class="muted"></span></div>
+</div>
+
+<div class="card hide" id="res"></div>
+
+<div class="card"><h2 style="margin-top:0">About the model</h2>
+<ol><li><b>Speech detection</b> (pyannote) finds where someone is talking.</li><li>Speech is cut into overlapping <b>1.5 s windows</b>.</li>
+<li>Each window becomes a 192-number <b>voice fingerprint</b> (ECAPA-TDNN speaker embedding).</li>
+<li>Windows are linked to their most similar neighbours in a graph, and <b>NME-SC spectral clustering</b> groups them; the number of groups is read from the largest jump in the graph's eigenvalues (the eigengap).</li>
+<li>The groups are the speakers; their windows give the timeline below.</li></ol>
+<div id="about" class="muted">Loading model details…</div></div>
+
+<footer>Research prototype. Audio is processed on the server only for this request and is deleted afterwards. Do not upload confidential recordings.</footer>
+</div>
+<script>
+const $=s=>document.querySelector(s);const COLORS=["#4f46e5","#e11d48","#059669","#d97706","#0891b2","#7c3aed","#db2777","#65a30d","#2563eb","#ea580c","#0d9488","#9333ea"];
+let ready=false,blob=null,fname="",maxMB=100,last=null;
+const fmt=s=>{s=Math.max(0,s);const m=Math.floor(s/60),x=Math.floor(s%60);return m+":"+String(x).padStart(2,"0")};
+function pill(state,text){$("#dot").className="dot"+(state==="ok"?" ok":state==="bad"?" bad":"");$("#ptext").textContent=text}
+async function health(){const t0=Date.now();pill("","Connecting…");
+  while(Date.now()-t0<240000){try{const r=await fetch("health",{cache:"no-store"});const j=await r.json();
+      if(j.status==="ready"){ready=true;maxMB=j.max_upload_mb;$("#mb").textContent=maxMB;$("#mins").textContent=Math.round(j.max_audio_min);pill("ok","Server ready");upd();about();return}
+      if(j.status==="error"){pill("bad","Server error");$("#status").textContent=j.error;return}
+      pill("","Loading the model… (up to 3 min)")}catch(e){pill("","Waking up the server… (up to 3 min)")}
+    await new Promise(r=>setTimeout(r,5000))}
+  pill("bad","Server not reachable");$("#status").innerHTML='<button class="sec" onclick="health()">Retry</button>'}
+async function about(){try{const m=await(await fetch("model")).json();const acc=m.measured_accuracy||{};
+  let h=`<p><b>${m.name}</b> · version <code>${m.version}</code> · max speakers ${m.k_max} · p_min ${m.p_min}</p>`;
+  const rows=Object.entries(acc);if(rows.length){h+="<table><tr><th>Held-out test set</th><th>Exact</th><th>Within ±1</th><th>Mean abs. error</th></tr>"+
+   rows.map(([k,v])=>`<tr><td>${k}</td><td>${Math.round(v.exact*100)}%</td><td>${Math.round(v.within_1*100)}%</td><td>${v.mae}</td></tr>`).join("")+"</table>"}
+  if(m.scope)h+=`<p class="note">${m.scope}</p>`;$("#about").innerHTML=h;$("#about").classList.remove("muted")}catch(e){}}
+function upd(){$("#go").disabled=!(ready&&blob)}
+function setFile(f,name){if(f.size>maxMB*1e6){$("#chosen").innerHTML=`<span class="err">File is ${(f.size/1e6).toFixed(0)} MB; the limit is ${maxMB} MB.</span>`;blob=null;upd();return}
+  blob=f;fname=name||f.name;const p=$("#player");p.src=URL.createObjectURL(f);p.classList.remove("hide");
+  p.onloadedmetadata=()=>{$("#chosen").textContent=`${fname} · ${(f.size/1e6).toFixed(1)} MB`+(isFinite(p.duration)?` · ${fmt(p.duration)}`:"")};
+  $("#chosen").textContent=`${fname} · ${(f.size/1e6).toFixed(1)} MB`;upd()}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>{document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("on",x===b));
+  $("#up").classList.toggle("hide",b.dataset.t!=="up");$("#rec").classList.toggle("hide",b.dataset.t!=="rec")});
+const drop=$("#drop");drop.onclick=()=>$("#file").click();$("#file").onchange=e=>e.target.files[0]&&setFile(e.target.files[0]);
+drop.ondragover=e=>{e.preventDefault();drop.classList.add("hover")};drop.ondragleave=()=>drop.classList.remove("hover");
+drop.ondrop=e=>{e.preventDefault();drop.classList.remove("hover");e.dataTransfer.files[0]&&setFile(e.dataTransfer.files[0])};
+let mr=null,chunks=[],rt=null,rs=0;
+$("#rbtn").onclick=async()=>{if(mr&&mr.state==="recording"){mr.stop();return}
+  try{const st=await navigator.mediaDevices.getUserMedia({audio:true});mr=new MediaRecorder(st);chunks=[];
+    mr.ondataavailable=e=>chunks.push(e.data);mr.onstop=()=>{st.getTracks().forEach(t=>t.stop());clearInterval(rt);$("#rbtn").textContent="● Start recording";
+      setFile(new File(chunks,"recording.webm",{type:mr.mimeType||"audio/webm"}),"recording.webm")};
+    mr.start();rs=Date.now();$("#rbtn").textContent="■ Stop";rt=setInterval(()=>{const s=(Date.now()-rs)/1000;$("#rtime").textContent=fmt(s);if(s>600)mr.stop()},250)}
+  catch(e){$("#chosen").innerHTML='<span class="err">Microphone not available: '+e.message+'</span>'}};
+$("#go").onclick=async()=>{const steps=["Uploading","Detecting speech","Extracting voice fingerprints","Clustering speakers"];const t0=Date.now();
+  $("#go").disabled=true;const iv=setInterval(()=>{const s=(Date.now()-t0)/1000;$("#status").innerHTML=`<span class="spin"></span> ${steps[Math.min(3,Math.floor(s/6))]}… ${Math.round(s)} s`},500);
+  try{const fd=new FormData();fd.append("file",blob,fname);const ctl=new AbortController();const to=setTimeout(()=>ctl.abort(),600000);
+    const r=await fetch("predict",{method:"POST",body:fd,signal:ctl.signal});clearTimeout(to);const j=await r.json();
+    if(!r.ok)throw new Error(j.detail||("HTTP "+r.status));last=j;show(j);$("#status").textContent=""}
+  catch(e){$("#res").classList.remove("hide");$("#res").innerHTML=`<div class="err">Analysis failed: ${e.name==="AbortError"?"timed out":e.message}</div>`;$("#status").textContent=""}
+  finally{clearInterval(iv);upd()}};
+function show(j){const k=j.num_speakers,d=j.audio?.duration_sec||1,sp=j.speakers||[],tr=j.turns||[],g=j.diagnostics||{};
+  let h=k===0?`<p class="hero">No speech detected</p>`:`<p class="hero">${k} <small>speaker${k===1?"":"s"} detected</small></p>`;
+  h+=`<div class="stats"><div class="stat"><b>${fmt(d)}</b><span>audio length</span></div><div class="stat"><b>${fmt(j.audio?.speech_sec||0)}</b><span>speech detected</span></div><div class="stat"><b>${j.processing_sec??"–"} s</b><span>processing time</span></div></div>`;
+  (j.notes||[]).forEach(n=>h+=`<div class="note">${n}</div>`);
+  if(sp.length){h+=`<h2>Who spoke when</h2><div class="tl">`+sp.map(s=>`<div class="tlrow"><div class="tlname">${s.label}</div><div class="tlbar">`+
+      tr.filter(t=>t.speaker===s.id).map(t=>`<div class="seg" title="${s.label}: ${fmt(t.start)}–${fmt(t.end)}" data-t="${t.start}" style="left:${100*t.start/d}%;width:${Math.max(.3,100*(t.end-t.start)/d)}%;background:${COLORS[(s.id-1)%12]}"></div>`).join("")+
+      `</div></div>`).join("")+`</div><div class="axis"><span>0:00</span><span>${fmt(d/2)}</span><span>${fmt(d)}</span></div><p class="muted" style="font-size:13px">Click a bar to play that moment.</p>`;
+    h+=`<h2>Talk time</h2><div class="bars">`+sp.map(s=>`<div class="b"><div class="tlname">${s.label}</div><div class="t"><div class="f" style="width:${100*s.share}%;background:${COLORS[(s.id-1)%12]}"></div></div><div style="width:110px;font-size:14px">${fmt(s.talk_time_sec)} · ${Math.round(100*s.share)}%</div></div>`).join("")+`</div>`}
+  const ev=g.eigenvalues||[];let svg="";if(ev.length>1){const W=320,H=120,mx=Math.max(...ev)||1;const pts=ev.map((v,i)=>`${10+i*(W-20)/(ev.length-1)},${H-10-(H-20)*v/mx}`).join(" ");
+    svg=`<svg viewBox="0 0 ${W} ${H}" width="100%" style="max-width:420px"><polyline fill="none" stroke="var(--acc)" stroke-width="2" points="${pts}"/>${ev.map((v,i)=>`<circle cx="${10+i*(W-20)/(ev.length-1)}" cy="${H-10-(H-20)*v/mx}" r="3" fill="var(--acc)"/>`).join("")}</svg><p class="muted" style="font-size:13px">Smallest eigenvalues of the speaker graph. The count is the position of the largest jump (eigengap).</p>`}
+  h+=`<details style="margin-top:16px"><summary>Technical details</summary><table>`+[["windows analysed",g.n_segments],["count before post-processing",g.k_before_postprocessing],["graph neighbours p*",g.p_star],["eigengap ratio",g.gap_ratio],["time: speech detection / embedding / clustering",`${g.time_vad_sec} / ${g.time_embed_sec} / ${g.time_cluster_sec} s`],["model",`${j.model?.method} (${j.model?.version})`]].map(([a,b])=>`<tr><td>${a}</td><td>${b??"–"}</td></tr>`).join("")+`</table>${svg}</details>`;
+  h+=`<div class="row"><button class="sec" id="dl">Download JSON</button><button class="sec" onclick="window.scrollTo({top:0,behavior:'smooth'})">Analyse another file</button></div>`;
+  $("#res").innerHTML=h;$("#res").classList.remove("hide");
+  $("#res").querySelectorAll(".seg").forEach(e=>e.onclick=()=>{const p=$("#player");p.currentTime=+e.dataset.t;p.play()});
+  $("#dl").onclick=()=>{const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([JSON.stringify(last,null,2)],{type:"application/json"}));a.download=(fname||"result")+".speakers.json";a.click()};
+  $("#res").scrollIntoView({behavior:"smooth"})}
+health();
+</script></body></html>

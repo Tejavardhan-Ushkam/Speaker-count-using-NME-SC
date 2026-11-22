@@ -12,10 +12,10 @@ pinned: false
 
 Counts the speakers in an uploaded audio file.
 
-**Pipeline:** pyannote speech detection → ECAPA speaker embeddings → NME-SC graph → SpectralNet → cluster post-processing.
+**Pipeline:** pyannote speech detection → 1.5 s windows → ECAPA speaker embeddings → NME-SC spectral clustering (count = largest eigengap).
 
 **Endpoints:**
-- `GET /` — test page for uploading a file
+- `GET /` — the website: upload or record audio and see the result
 - `GET /health` — whether the server is ready
 - `GET /model` — description of the model
 - `POST /predict` — send the audio as multipart field `file`

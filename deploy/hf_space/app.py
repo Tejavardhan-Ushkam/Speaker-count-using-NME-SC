@@ -1,6 +1,6 @@
 """Speaker-count web API (FastAPI) for a Hugging Face Docker Space.
 
-GET  /         -> minimal built-in upload page (works even without the Lovable front-end)
+GET  /         -> the website (static/index.html): upload or record, count, timeline, talk time
 GET  /health   -> {"status": "ready" | "loading", ...}
 GET  /model    -> model description, settings and measured accuracy
 POST /predict  -> multipart form field "file" (any audio/video ffmpeg reads) -> JSON result
@@ -95,19 +95,9 @@ async def predict(file: UploadFile = File(...)):
     return result
 
 
-PAGE = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Speaker Count API</title><style>body{font-family:system-ui,sans-serif;max-width:640px;margin:40px auto;padding:0 16px}
-pre{background:#f4f4f4;padding:12px;overflow:auto;max-height:420px}</style></head><body>
-<h1>Speaker Count API</h1><p>Upload an audio file to count its speakers. (Back-end test page; the main site is the Lovable app.)</p>
-<p id="h">Checking server...</p><input type="file" id="f" accept="audio/*,video/*"> <button onclick="go()">Count speakers</button>
-<h2 id="k"></h2><pre id="o"></pre><script>
-fetch('health').then(r=>r.json()).then(j=>h.textContent='Server: '+j.status);
-async function go(){const x=f.files[0];if(!x)return;k.textContent='Analysing...';o.textContent='';
-const d=new FormData();d.append('file',x);const r=await fetch('predict',{method:'POST',body:d});const j=await r.json();
-k.textContent=r.ok?('Speakers: '+j.num_speakers):('Error: '+j.detail);o.textContent=JSON.stringify(j,null,2);}
-</script></body></html>"""
+INDEX = Path(__file__).with_name("static") / "index.html"
 
 
 @app.get("/", response_class=HTMLResponse)
 def index():
-    return PAGE
+    return INDEX.read_text(encoding="utf-8")

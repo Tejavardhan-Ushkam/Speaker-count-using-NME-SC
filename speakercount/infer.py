@@ -68,18 +68,18 @@ class SpeakerCounter:
         self.spec = spec
         dev = device or os.environ.get("SPEAKERCOUNT_DEVICE") or spec.get("device", "cpu")
         over = {"vad": {"source": "pyannote", "device": dev}, "embedding": {"device": dev},
-                "clustering": {"device": dev}, "spectralnet": {"device": dev, "warm_start": False},
-                "postprocess": {"tuned_file": spec["tuned_file"]}}
+                "clustering": {"device": dev}, "spectralnet": {"device": dev, "warm_start": False}}
+        if spec.get("tuned_file"):   # methods with post-processing (e.g. snet_ecapa_pp); plain NME-SC has none
+            over["postprocess"] = {"tuned_file": spec["tuned_file"]}
         self.cfg = load_config(None, method=spec["method"], overrides=over)
         from .cluster.run import tuned_postprocess
 
         self.pp = tuned_postprocess(self.cfg)
-        if self.pp.get("p_min") is not None:
-            self.cfg.clustering.p_min = int(self.pp["p_min"])
-        if self.pp.get("k_max") is not None:
-            self.cfg.clustering.k_max = int(self.pp["k_max"])
-        elif spec.get("k_max"):
-            self.cfg.clustering.k_max = int(spec["k_max"])
+        # precedence: tuned file > model.yaml > base.yaml
+        for key in ("p_min", "k_max"):
+            v = self.pp.get(key) if self.pp.get(key) is not None else spec.get(key)
+            if v is not None:
+                self.cfg.clustering[key] = int(v)
         from .embedding import EcapaEmbedder
         from .vad import PyannoteVad
 
@@ -95,8 +95,10 @@ class SpeakerCounter:
         c = self.cfg.clustering
         return {"name": self.spec.get("display_name", self.spec["method"]), "method": self.spec["method"],
                 "version": self.version, "k_max": int(c.k_max), "p_min": int(c.p_min),
-                "postprocess": {k: self.pp[k] for k in ("min_cluster_share", "share_mode", "merge_threshold",
-                                                        "single_speaker_threshold")},
+                "backend": self.cfg.clustering.backend,
+                "postprocess": ({k: self.pp[k] for k in ("min_cluster_share", "share_mode", "merge_threshold",
+                                                         "single_speaker_threshold")}
+                                if self.cfg.postprocess.enabled else None),
                 "measured_accuracy": self.spec.get("measured_accuracy", {}),
                 "scope": self.spec.get("scope", "")}
 

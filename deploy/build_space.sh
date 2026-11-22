@@ -5,11 +5,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 OUT=deploy/space_build
-rm -rf "$OUT"; mkdir -p "$OUT/configs" "$OUT/deploy"
-cp deploy/hf_space/{app.py,Dockerfile,requirements.txt,README.md} "$OUT/"
+mkdir -p "$OUT"; find "$OUT" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +   # keep the Space git repo
+mkdir -p "$OUT/configs" "$OUT/deploy"
+cp deploy/hf_space/{app.py,Dockerfile,requirements.txt,README.md} "$OUT/"; cp -r deploy/hf_space/static "$OUT/"
 rsync -a --exclude __pycache__ --exclude '*.pyc' speakercount "$OUT/"
 cp configs/base.yaml "$OUT/configs/"; cp -r configs/methods "$OUT/configs/"
-cp deploy/tuned.yaml "$OUT/deploy/tuned.yaml"
+if [ -f deploy/tuned.yaml ]; then cp deploy/tuned.yaml "$OUT/deploy/tuned.yaml"; fi   # only for methods with post-processing
 VER=$(git rev-parse --short HEAD)
 { cat deploy/model.yaml; echo "version: \"$VER\""; } > "$OUT/deploy/model.yaml"
 printf '__pycache__/\n*.pyc\n' > "$OUT/.gitignore"

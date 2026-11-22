@@ -1,4 +1,6 @@
-# Lovable prompts (free plan: 3 prompts, so each one does a lot)
+# Lovable prompts (optional: the Hugging Face Space already serves a complete website)
+
+The free plan allows 3 prompts, so each one does a lot.
 
 Do this only after the back-end is live (step 3 of DEPLOY_GUIDE.md) and
 `https://<your-hf-username>-speaker-count.hf.space/health` shows `"status":"ready"`.
@@ -16,7 +18,7 @@ It is a demo of a university research project, to be shown to a professor. It is
 do NOT add Supabase, a database, authentication, edge functions or any backend. The browser calls an existing public REST API directly (CORS is open).
 
 API (already deployed; do not mock it, call it for real):
-const API_BASE = "https://YOUR-HF-USERNAME-speaker-count.hf.space";
+const API_BASE = "https://teja-vardhan006-speaker-count.hf.space";
 Put API_BASE in one file, src/config.ts, and import it everywhere.
 
 Endpoints:
@@ -39,11 +41,10 @@ Endpoints:
                   "eigenvalues": [0.00116, 0.0705, 0.08669, 0.1586, 3.48076, 3.59828],
                   "time_vad_sec": 5.9, "time_embed_sec": 3.3, "time_cluster_sec": 0.7},
   "processing_sec": 10.1,
-  "model": {"name": "SpecClustering v2 (ECAPA + NME-SC graph + SpectralNet + pruning)", "method": "snet_ecapa_pp",
-            "version": "abc1234", "k_max": 25, "p_min": 4,
-            "postprocess": {"min_cluster_share": 0.15, "share_mode": "relative", "merge_threshold": 0.7, "single_speaker_threshold": null},
-            "measured_accuracy": {"VoxConverse test, 1-6 speakers (117)": {"exact": 0.59, "within_1": 0.84, "mae": 0.65}},
-            "scope": "Best on recordings with 1-6 speakers; above 10 speakers it under-counts."}
+  "model": {"name": "NME-SC on ECAPA speaker embeddings (p_min 4)", "method": "nmesc_ecapa", "backend": "exact",
+            "version": "abc1234", "k_max": 25, "p_min": 4, "postprocess": null,
+            "measured_accuracy": {"VoxConverse test, 1-6 speakers (117 recordings)": {"exact": 0.64, "within_1": 0.86, "mae": 0.67}},
+            "scope": "Most reliable for 1-6 speakers. With many speakers (10+) it tends to under-count."}
 }
 Errors come back as HTTP 4xx/5xx with JSON {"detail": "message"}: 413 file too large, 422 cannot decode or too long, 429 busy, 503 model still loading.
 num_speakers can be 0 (no speech found); then speakers and turns are empty and notes explains why.
@@ -76,8 +77,8 @@ Page layout (responsive, looks good on a laptop projector and on a phone):
      y = eigenvalue), with the caption "The count is the position of the largest jump (eigengap)".
   7. Buttons: "Download JSON" (the raw response) and "Analyse another file".
 - "About the model" section (load it from GET /model once the server is ready): explain the pipeline in five steps
-  (speech detection → 1.5 s windows → ECAPA speaker embeddings → similarity graph and spectral clustering with SpectralNet → removal of
-  tiny clusters). Show measured_accuracy as a small table (dataset, exact, within ±1, MAE) and show "scope" prominently, with the text:
+  (speech detection → 1.5 s windows → ECAPA speaker embeddings → similarity graph of nearest neighbours → NME-SC spectral clustering,
+  where the count is the largest eigengap). Show measured_accuracy as a small table (dataset, exact, within ±1, MAE) and show "scope" prominently, with the text:
   "Accuracy was measured on held-out test sets. It is highest for 1-6 speakers, and the model tends to under-count very large groups."
 - Footer: "Research prototype. Audio is processed on the server only for this request and is not stored." Add a GitHub link placeholder (href="#").
 
