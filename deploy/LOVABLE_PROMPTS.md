@@ -1,12 +1,9 @@
-# Lovable prompts (optional: the Hugging Face Space already serves a complete website)
+# Lovable prompts (optional)
 
-The free plan allows 3 prompts, so each one does a lot.
+The Hugging Face Space at https://teja-vardhan006-speaker-count.hf.space is already a complete website.
+Use Lovable only if you want a second, custom-designed front-end.
 
-Do this only after the back-end is live (step 3 of DEPLOY_GUIDE.md) and
-`https://<your-hf-username>-speaker-count.hf.space/health` shows `"status":"ready"`.
-
-Before pasting, replace `YOUR-HF-USERNAME` with your Hugging Face username in lower case.
-The URL appears exactly once in Prompt 1, on the `API_BASE` line.
+The free plan allows 3 prompts, so each one does a lot. Before using them, make sure the Space shows **Running** and that analysing a file on its own page works.
 
 ---
 
@@ -15,105 +12,107 @@ The URL appears exactly once in Prompt 1, on the `API_BASE` line.
 ```
 Build a polished, single-page web app called "SpeakerCount" that counts how many people speak in an audio recording.
 It is a demo of a university research project, to be shown to a professor. It is a front-end only:
-do NOT add Supabase, a database, authentication, edge functions or any backend. The browser calls an existing public REST API directly (CORS is open).
+do NOT add Supabase, a database, authentication, edge functions or any backend.
 
-API (already deployed; do not mock it, call it for real):
-const API_BASE = "https://teja-vardhan006-speaker-count.hf.space";
-Put API_BASE in one file, src/config.ts, and import it everywhere.
+The analysis runs on an existing public Hugging Face Gradio Space. Call it from the browser with the official
+Gradio JavaScript client: install the npm package "@gradio/client". Do not mock it; call it for real.
+Put the Space id in one file, src/config.ts:
+export const SPACE_ID = "Teja-vardhan006/speaker-count";
+export const SPACE_URL = "https://teja-vardhan006-speaker-count.hf.space";
 
-Endpoints:
-1. GET  {API_BASE}/health  -> {"status":"ready"|"loading"|"error","error":string|null,"busy":boolean,"max_upload_mb":100,"max_audio_min":30}
-2. GET  {API_BASE}/model   -> model description (see example below, the "model" object)
-3. POST {API_BASE}/predict -> multipart/form-data with ONE field named "file" (the audio file). Returns JSON like:
+How to call it (src/lib/api.ts):
+import { Client, handle_file } from "@gradio/client";
+let clientPromise = null;
+export function getClient() { if (!clientPromise) clientPromise = Client.connect(SPACE_ID); return clientPromise; }
+export async function countSpeakers(file: File) {
+  const client = await getClient();
+  const res = await client.predict("/predict", { audio: handle_file(file) });
+  return res.data[0];            // the JSON result described below
+}
+export async function modelInfo() {
+  const client = await getClient();
+  return (await client.predict("/model_info", {})).data[0];
+}
+If the connection or the call fails, reset clientPromise to null so the next attempt reconnects.
+Errors raised by the Space arrive as exceptions whose message is human-readable (for example a GPU-quota or
+"could not decode audio" message); show that text to the user.
+
+The /predict result looks like this (treat every field except num_speakers as optional):
 {
-  "filename": "meeting.mp3",
   "num_speakers": 4,
   "audio": {"duration_sec": 169.15, "speech_sec": 147.34},
   "speakers": [
     {"id": 1, "label": "Speaker 1", "talk_time_sec": 61.5, "share": 0.441},
-    {"id": 2, "label": "Speaker 2", "talk_time_sec": 36.0, "share": 0.258},
-    {"id": 3, "label": "Speaker 3", "talk_time_sec": 18.75, "share": 0.134},
-    {"id": 4, "label": "Speaker 4", "talk_time_sec": 23.2, "share": 0.167}
+    {"id": 2, "label": "Speaker 2", "talk_time_sec": 36.0, "share": 0.258}
   ],
   "turns": [ {"speaker": 1, "start": 2.8, "end": 6.55}, {"speaker": 2, "start": 6.55, "end": 11.8} ],
   "notes": [],
   "diagnostics": {"n_segments": 154, "k_before_postprocessing": 4, "p_star": 11, "gap_ratio": 5.721,
                   "eigenvalues": [0.00116, 0.0705, 0.08669, 0.1586, 3.48076, 3.59828],
-                  "time_vad_sec": 5.9, "time_embed_sec": 3.3, "time_cluster_sec": 0.7},
-  "processing_sec": 10.1,
-  "model": {"name": "NME-SC on ECAPA speaker embeddings (p_min 4)", "method": "nmesc_ecapa", "backend": "exact",
-            "version": "abc1234", "k_max": 25, "p_min": 4, "postprocess": null,
+                  "time_vad_sec": 1.2, "time_embed_sec": 0.4, "time_cluster_sec": 0.2},
+  "processing_sec": 2.1,
+  "device": "cuda",
+  "model": {"name": "NME-SC on ECAPA speaker embeddings (p_min 4)", "method": "nmesc_ecapa", "version": "abc1234",
+            "k_max": 25, "p_min": 4,
             "measured_accuracy": {"VoxConverse test, 1-6 speakers (117 recordings)": {"exact": 0.64, "within_1": 0.86, "mae": 0.67}},
             "scope": "Most reliable for 1-6 speakers. With many speakers (10+) it tends to under-count."}
 }
-Errors come back as HTTP 4xx/5xx with JSON {"detail": "message"}: 413 file too large, 422 cannot decode or too long, 429 busy, 503 model still loading.
 num_speakers can be 0 (no speech found); then speakers and turns are empty and notes explains why.
-Treat every field except num_speakers as optional and never crash on a missing field.
 
-The server is on a free host that sleeps when unused. On page load, call /health. If the request fails or the status is "loading",
-show a friendly banner "Waking up the analysis server, this can take up to 3 minutes" with a spinner, and poll /health every 5 s
-for up to 4 minutes. Show a green "Server ready" pill once the status is "ready", or a red message with a Retry button if it is still not ready after 4 minutes.
-Keep the upload controls usable the whole time, but queue the analysis until the server is ready.
+The Space sleeps when unused. On page load, call getClient() and show a banner "Waking up the analysis server
+(can take 1-3 minutes)" with a spinner until it connects. Then show a green "Server ready" pill, load modelInfo()
+for the About section, and show a red message with a Retry button on failure. Keep the upload controls usable the whole time.
 
 Page layout (responsive, looks good on a laptop projector and on a phone):
-- Header: app name "SpeakerCount", subtitle "How many people are speaking? Upload a recording and find out.", server status pill.
+- Header: app name "SpeakerCount", subtitle "How many people are speaking? Upload a recording and find out.", and the server status pill.
 - Input card with two tabs:
-  (a) "Upload file": drag-and-drop zone plus a file picker. Accept audio/* and video/* (wav, mp3, m4a, flac, ogg, webm, mp4).
-      Reject files over 100 MB in the browser with a clear message. Show the file name, size and duration (from an <audio> element), and an audio player to preview it.
-  (b) "Record": record from the microphone with MediaRecorder (Start / Stop, live timer, max 10 minutes), then preview and send it
-      as a File named "recording.webm".
+  (a) "Upload file": a drag-and-drop zone plus a file picker; accept audio/* (wav, mp3, m4a, flac, ogg, webm). Reject files
+      over 100 MB with a clear message. Show the file name, size and duration, and an audio player to preview it.
+  (b) "Record": record from the microphone with MediaRecorder (Start/Stop, live timer, max 10 minutes), then preview it and send it as a File named "recording.webm".
   A primary button "Count speakers".
-- While analysing: a progress state with step text that changes every few seconds ("Uploading", "Detecting speech", "Extracting voice
-  fingerprints", "Clustering speakers"). This is cosmetic only, because the API returns once at the end. Show the elapsed seconds. Use a fetch timeout of 10 minutes.
-- Results section (appears below; keep the last result visible until a new one arrives):
-  1. A large hero number: "4 speakers detected" (singular for 1; for 0 show "No speech detected").
-  2. Small stat cards: audio length, speech detected, processing time.
-  3. "Who spoke when": a horizontal timeline over the audio length, with one row per speaker and coloured bars for each turn.
-     Hovering a bar shows the speaker and start-end time (mm:ss). Clicking a bar seeks the audio preview player to that time and plays it.
-  4. "Talk time": a horizontal bar chart (recharts) of talk_time_sec per speaker with percentages.
-  5. Any notes shown as amber info boxes.
-  6. A collapsible "Technical details" panel: model name, version, k_max, p_min, post-processing settings, n_segments,
-     k_before_postprocessing, p_star, gap_ratio, timings, and a small line chart of the first eigenvalues (x = index 1..n,
-     y = eigenvalue), with the caption "The count is the position of the largest jump (eigengap)".
-  7. Buttons: "Download JSON" (the raw response) and "Analyse another file".
-- "About the model" section (load it from GET /model once the server is ready): explain the pipeline in five steps
-  (speech detection → 1.5 s windows → ECAPA speaker embeddings → similarity graph of nearest neighbours → NME-SC spectral clustering,
-  where the count is the largest eigengap). Show measured_accuracy as a small table (dataset, exact, within ±1, MAE) and show "scope" prominently, with the text:
-  "Accuracy was measured on held-out test sets. It is highest for 1-6 speakers, and the model tends to under-count very large groups."
-- Footer: "Research prototype. Audio is processed on the server only for this request and is not stored." Add a GitHub link placeholder (href="#").
+- While analysing: a progress state with step text that changes every few seconds ("Uploading", "Detecting speech",
+  "Extracting voice fingerprints", "Clustering speakers"), plus elapsed seconds.
+- Results:
+  1. A hero line, "4 speakers detected" (singular for 1; for 0 say "No speech detected").
+  2. Stat cards: audio length, speech detected, processing time.
+  3. "Who spoke when": a horizontal timeline over the audio length, one row per speaker, coloured bars for the turns.
+     Hovering a bar shows the speaker and its start-end time (mm:ss); clicking a bar seeks the preview player there and plays it.
+  4. "Talk time": a horizontal bar chart (recharts) of talk_time_sec per speaker, with percentages.
+  5. Notes as amber info boxes.
+  6. A collapsible "Technical details" panel: model name and version, k_max, p_min, n_segments, p_star, gap_ratio, timings, device,
+     and a small line chart of the eigenvalues captioned "The count is the position of the largest jump (eigengap)".
+  7. Buttons "Download JSON" and "Analyse another file".
+- "About the model" section: five steps (speech detection → 1.5 s windows → ECAPA speaker embeddings → graph of nearest
+  neighbours → NME-SC spectral clustering, count = largest eigengap). Show measured_accuracy as a table (test set, exact,
+  within ±1, MAE) and the scope text prominently. Add a link "Open the original demo on Hugging Face" to SPACE_URL.
+- Footer: "Research prototype. Audio is processed only for this request and is not stored." Add a link to
+  https://github.com/Tejavardhan-Ushkam/Speaker-count-using-NME-SC
 
-Style: clean, modern, light theme with an optional dark mode toggle, indigo accent, rounded cards, plenty of whitespace,
-accessible contrast, and a consistent speaker colour palette (up to 12 distinct colours, cycling after that). Use shadcn/ui and Tailwind.
-Show errors as toasts and also inline in the result area, using the API "detail" text.
-After building, double-check that the request uses FormData with the field name exactly "file", that you do NOT set the
-Content-Type header manually, and that API_BASE has no trailing slash.
+Style: clean, modern, light theme with a dark-mode toggle, indigo accent, rounded cards, shadcn/ui + Tailwind, accessible contrast,
+and a consistent palette of 12 speaker colours. Show errors as toasts and inline.
 ```
 
 ---
 
 ## Prompt 2 — only if something is wrong (fill in what you saw)
 
-Use it to fix all problems at once. Replace the bullets with what you observed, and paste the exact error text
-from the browser (right-click → Inspect → Console).
+Use it to fix every problem at once. Replace the bullets with what you observed, and paste the exact error text
+from the browser console (right-click → Inspect → Console).
 
 ```
 Fix these issues in one pass, and do not change anything else:
-1. <e.g. Clicking "Count speakers" shows "Failed to fetch". Console: ...>
-2. <e.g. The timeline overflows on mobile>
-3. <e.g. The status pill stays on "Waking up" although {API_BASE}/health returns {"status":"ready"}>
-Re-check that POST {API_BASE}/predict sends FormData with the field "file", with no manual Content-Type header and no trailing slash in API_BASE.
+1. <e.g. "Server ready" never appears. Console: ...>
+2. <e.g. Clicking "Count speakers" fails with: ...>
+3. <e.g. The timeline overflows on mobile>
+Re-check that the app uses @gradio/client: Client.connect("Teja-vardhan006/speaker-count"), then
+client.predict("/predict", { audio: handle_file(file) }), and reads res.data[0].
 ```
 
 ## Prompt 3 — keep in reserve
 
-Keep it for the day before the presentation, for one last change; for example adding your name, the professor's name,
-the university logo and a link to the repository in the header and footer:
+For one last content change before the presentation:
 
 ```
-Small content update only: in the header add "M.Tech project by <your name>, supervised by <prof name>, <university>"; in the footer
-replace the GitHub placeholder link with <repo URL>. Do not change any logic.
+Small content update only: in the header add "M.Tech project by <your name>, supervised by <prof name>, <university>".
+Do not change any logic.
 ```
-
-Free fixes that don't use a prompt:
-- Lovable's code view, or the GitHub sync described in DEPLOY_GUIDE.md, lets you edit text such as `API_BASE` in `src/config.ts` by hand.
-- After editing, press **Publish** again.
