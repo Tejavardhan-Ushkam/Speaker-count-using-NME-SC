@@ -51,7 +51,7 @@ class PyannoteVad:
             from pyannote.audio import Model
             from pyannote.audio.pipelines import VoiceActivityDetection
 
-            token = os.environ.get("HF_TOKEN") or None
+            token = (os.environ.get("HF_TOKEN") or "").strip() or None
             # huggingface_hub>=1.0 dropped use_auth_token (still passed by pyannote 3.3.2):
             # download the checkpoint ourselves and load the local file.
             ckpt = hf_hub_download(self.cfg.model, "pytorch_model.bin", token=token)

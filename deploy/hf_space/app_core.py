@@ -8,6 +8,10 @@ from __future__ import annotations
 
 import os
 
+# secrets pasted into the Space settings often carry a trailing newline, which HTTP headers reject
+if os.environ.get("HF_TOKEN"):
+    os.environ["HF_TOKEN"] = os.environ["HF_TOKEN"].strip()
+
 import matplotlib
 
 matplotlib.use("Agg")
