@@ -4,9 +4,11 @@ emoji: 🎙️
 colorFrom: indigo
 colorTo: blue
 sdk: gradio
-python_version: "3.10"
+sdk_version: 6.32.0
+python_version: "3.12"
 app_file: app.py
 pinned: false
+license: mit
 short_description: Counts how many people speak in an audio recording
 ---
 

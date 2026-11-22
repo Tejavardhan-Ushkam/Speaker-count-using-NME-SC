@@ -70,11 +70,8 @@ You've already created the Space. Now:
    1. In your Space, open **Settings → Variables and secrets → New secret**.
    2. *Name:* `HF_TOKEN`, exactly. *Value:* your **Read** token.
    3. Click **Save**.
-3. **Note the Gradio version Hugging Face chose.** This keeps the code and the platform on the same version.
-   1. In your Space, open the **Files** tab and click `README.md`.
-   2. Find the line `sdk_version: …` (for example `sdk_version: 5.49.1`) and copy it.
-   3. On the server, open `deploy/hf_space/README.md` and paste it **directly under** the line `sdk: gradio`. Save.
-   4. If there is no such line, skip this step.
+3. **Gradio version:** already done. Our `deploy/hf_space/README.md` uses the versions Hugging Face chose for your Space
+   (`sdk_version: 6.32.0`, `python_version: "3.12"`).
 
 ---
 
