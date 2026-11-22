@@ -211,7 +211,9 @@ def _save(cfg: Cfg, rec: str, res: dict, z: np.ndarray) -> None:
     f.parent.mkdir(parents=True, exist_ok=True)
     arrays = {k: np.asarray(v) for k, v in res.items() if v is not None and not isinstance(v, str)}
     arrays["z"] = z.astype(np.float16)
-    np.savez_compressed(f, **arrays)
+    tmp = f.with_name(f.stem + ".partial.npz")   # atomic: a killed run never leaves a truncated cache file
+    np.savez_compressed(tmp, **arrays)
+    tmp.replace(f)
 
 
 def load_rec(cfg: Cfg, rec: str) -> dict:

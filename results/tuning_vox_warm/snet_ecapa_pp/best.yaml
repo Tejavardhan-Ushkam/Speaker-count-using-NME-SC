@@ -1,0 +1,15 @@
+min_cluster_share: 0.15
+share_mode: relative
+p_min: 4
+merge_threshold: 0.7
+single_speaker_threshold: null
+objective: 0.7978036175710594
+objective_without_postprocessing: 0.624031007751938
+mean_mae: 0.4347545219638243
+mean_mae_without_postprocessing: 1.6595607235142118
+val_sets:
+- configs/ami_dev.yaml
+- configs/vox_val.yaml
+objective_definition: mean over available val sets of [exact (AMI dev) | rel_acc (Vox
+  val)]
+git_commit: 582a65b989a5ea57512b7456ad0b40386e6260ac
