@@ -119,7 +119,13 @@ class SpeakerCounter:
             if max_sec and duration > max_sec:
                 raise ValueError(f"audio is {duration / 60:.1f} min; the limit is {max_sec / 60:.0f} min")
             t = time.time()
-            intervals = self.vad.intervals(wav_path)
+            # pass the decoded waveform (not the path): pyannote then needs no torchaudio file I/O,
+            # which newer torchaudio versions removed
+            import torch
+
+            ann = self.vad.pipeline({"waveform": torch.from_numpy(wav).unsqueeze(0),
+                                     "sample_rate": cfg.embedding.sample_rate})
+            intervals = [(float(s.start), float(s.end)) for s in ann.get_timeline().support()]
             t_vad = time.time() - t
         segs = segment_intervals(intervals, cfg.segmentation)
         base = {"model": self.info(), "audio": {"duration_sec": round(duration, 2),
