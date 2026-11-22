@@ -7,7 +7,8 @@ cd "$(dirname "$0")/.."
 OUT=deploy/space_build
 mkdir -p "$OUT"; find "$OUT" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +   # keep the Space git repo
 mkdir -p "$OUT/configs" "$OUT/deploy"
-cp deploy/hf_space/{app.py,Dockerfile,requirements.txt,README.md} "$OUT/"; cp -r deploy/hf_space/static "$OUT/"
+cp deploy/hf_space/{app.py,app_core.py,requirements.txt,packages.txt,README.md} "$OUT/"   # Gradio + ZeroGPU Space
+# (the Docker variant for paid CPU hardware lives in deploy/hf_space_docker/)
 rsync -a --exclude __pycache__ --exclude '*.pyc' speakercount "$OUT/"
 cp configs/base.yaml "$OUT/configs/"; cp -r configs/methods "$OUT/configs/"
 if [ -f deploy/tuned.yaml ]; then cp deploy/tuned.yaml "$OUT/deploy/tuned.yaml"; fi   # only for methods with post-processing

@@ -1,17 +1,18 @@
-# CPU serving stack. torch / torchaudio 2.6.0+cpu are installed first by the Dockerfile.
-# Same versions as the research environment (../../requirements.txt), minus training-only packages.
-torch==2.6.0+cpu
-torchaudio==2.6.0+cpu
+# Gradio itself is installed by the Space (sdk: gradio in README.md), so it is not listed here,
+# because listing it again can install a second, conflicting version. `spaces` provides @spaces.GPU (ZeroGPU).
+spaces
+torch==2.6.0
+torchaudio==2.6.0
 speechbrain==1.1.1
 hyperpyyaml==1.2.3
 ruamel.yaml==0.18.17
-huggingface_hub==1.28.0
 numpy==2.2.6
 scipy==1.15.3
 scikit-learn==1.7.2
 pandas==2.3.3
 soundfile==0.13.1
 PyYAML==6.0.3
+matplotlib==3.10.9
 pyannote.audio==3.3.2
 pyannote.core==6.0.1
 pyannote.database==6.1.1
@@ -22,6 +23,3 @@ lightning==2.6.6
 torchmetrics==1.9.0
 asteroid-filterbanks==0.4.0
 torch-audiomentations==0.12.0
-fastapi==0.115.6
-uvicorn==0.34.0
-python-multipart==0.0.20

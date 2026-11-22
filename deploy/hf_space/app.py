@@ -1,103 +1,57 @@
-"""Speaker-count web API (FastAPI) for a Hugging Face Docker Space.
+"""Speaker Count: Gradio app for a Hugging Face ZeroGPU Space.
 
-GET  /         -> the website (static/index.html): upload or record, count, timeline, talk time
-GET  /health   -> {"status": "ready" | "loading", ...}
-GET  /model    -> model description, settings and measured accuracy
-POST /predict  -> multipart form field "file" (any audio/video ffmpeg reads) -> JSON result
+Website: upload or record audio, then see the count, "who spoke when", talk time and the raw JSON.
+API (from gradio_client / @gradio/client):
+  /predict    (audio file) -> JSON result (num_speakers, speakers, turns, notes, diagnostics, model ...)
+  /model_info ()           -> model description and measured accuracy
 """
 
 from __future__ import annotations
 
-import os
-import tempfile
-import threading
-import time
-from pathlib import Path
+import gradio as gr
+import spaces
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
-from starlette.concurrency import run_in_threadpool
-
-from speakercount.infer import SpeakerCounter
-
-MAX_MB = float(os.environ.get("MAX_UPLOAD_MB", "100"))
-MAX_SEC = float(os.environ.get("MAX_AUDIO_SEC", "1800"))  # 30 min: CPU time stays a few minutes
-
-app = FastAPI(title="Speaker Count API", version="1.0")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET", "POST", "OPTIONS"],
-                   allow_headers=["*"])
-
-_state = {"counter": None, "error": None, "started": time.time()}
-_lock = threading.Lock()  # one analysis at a time on a 2-vCPU machine
+from app_core import COUNTER, about_md, analyse, summary_md, timeline_fig
 
 
-def _load():
+@spaces.GPU(duration=90)
+def predict(audio: str) -> dict:
+    """Count the speakers in an audio file. Returns the full JSON result."""
+    if not audio:
+        raise gr.Error("Please upload or record an audio file first.")
     try:
-        c = SpeakerCounter("deploy/model.yaml")
-        c.warmup()
-        _state["counter"] = c
-    except Exception as e:  # noqa: BLE001 - reported by /health
-        _state["error"] = f"{type(e).__name__}: {e}"
+        return analyse(audio)
+    except ValueError as e:  # undecodable or too long
+        raise gr.Error(str(e)) from e
 
 
-threading.Thread(target=_load, daemon=True).start()
+def model_info() -> dict:
+    """Model description, settings and measured accuracy."""
+    return COUNTER.info()
 
 
-def _counter() -> SpeakerCounter:
-    if _state["counter"] is None:
-        if _state["error"]:
-            raise HTTPException(500, f"model failed to load: {_state['error']}")
-        raise HTTPException(503, "model is still loading, try again in a minute")
-    return _state["counter"]
+def run_ui(audio: str):
+    r = predict(audio)
+    return summary_md(r), timeline_fig(r) if r.get("speakers") else None, r
 
 
-def _run(counter: SpeakerCounter, src: Path) -> dict:
-    if not _lock.acquire(timeout=600):
-        raise HTTPException(429, "server is busy with another file, try again shortly")
-    try:
-        return counter.predict(src, max_sec=MAX_SEC)
-    except ValueError as e:  # undecodable / too long
-        raise HTTPException(422, str(e)) from e
-    finally:
-        _lock.release()
+with gr.Blocks(title="Speaker Count") as demo:
+    gr.Markdown("# 🎙️ SpeakerCount\nHow many people are speaking? Upload or record audio and find out.")
+    with gr.Row():
+        with gr.Column(scale=1):
+            audio = gr.Audio(sources=["upload", "microphone"], type="filepath", label="Audio (wav, mp3, m4a, flac, ogg, webm)")
+            btn = gr.Button("Count speakers", variant="primary")
+            gr.Markdown("Up to 30 minutes per file. The first analysis after a quiet period takes longer while the server wakes up.")
+        with gr.Column(scale=2):
+            out_md = gr.Markdown("Results appear here.")
+            out_plot = gr.Plot(label="Who spoke when")
+    with gr.Accordion("Technical details (JSON)", open=False):
+        out_json = gr.JSON()
+    with gr.Accordion("About the model", open=False):
+        gr.Markdown(about_md())
+    btn.click(run_ui, inputs=audio, outputs=[out_md, out_plot, out_json], api_name="count_ui")
+    # clean API endpoints (shown under "Use via API" at the bottom of the page)
+    gr.Button(visible=False).click(predict, inputs=audio, outputs=out_json, api_name="predict")
+    gr.Button(visible=False).click(model_info, inputs=None, outputs=out_json, api_name="model_info")
 
-
-@app.get("/health")
-def health():
-    status = "ready" if _state["counter"] else ("error" if _state["error"] else "loading")
-    return {"status": status, "error": _state["error"], "uptime_sec": round(time.time() - _state["started"]),
-            "busy": _lock.locked(), "max_upload_mb": MAX_MB, "max_audio_min": MAX_SEC / 60}
-
-
-@app.get("/model")
-def model():
-    return _counter().info()
-
-
-@app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    counter = _counter()
-    suffix = Path(file.filename or "audio").suffix[:10] or ".bin"
-    with tempfile.TemporaryDirectory() as tmp:
-        src = Path(tmp) / f"upload{suffix}"
-        size = 0
-        with open(src, "wb") as f:
-            while chunk := await file.read(1 << 20):
-                size += len(chunk)
-                if size > MAX_MB * 1e6:
-                    raise HTTPException(413, f"file is larger than {MAX_MB:.0f} MB")
-                f.write(chunk)
-        if size == 0:
-            raise HTTPException(400, "empty file")
-        result = await run_in_threadpool(_run, counter, src)  # keeps /health responsive meanwhile
-    result["filename"] = file.filename
-    return result
-
-
-INDEX = Path(__file__).with_name("static") / "index.html"
-
-
-@app.get("/", response_class=HTMLResponse)
-def index():
-    return INDEX.read_text(encoding="utf-8")
+demo.queue(max_size=20).launch(max_file_size="100mb")
